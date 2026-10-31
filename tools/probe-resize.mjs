@@ -1,0 +1,12 @@
+import { chromium } from 'playwright-core';
+const browser = await chromium.launch({ channel: 'msedge', headless: true });
+const page = await browser.newPage({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2 });
+await page.goto('http://127.0.0.1:5273/', { waitUntil: 'load', timeout: 60000 });
+await page.waitForFunction('window.__READY__ === true', { timeout: 40000 });
+await page.waitForTimeout(6000);
+const read = () => page.evaluate(() => { const S = window.__SCENE__; const c = S.renderer.domElement; return { q:+S.getQuality().toFixed(3), buf:[c.width,c.height], css:[c.clientWidth,c.clientHeight], ok: Math.abs(c.width - c.clientWidth*S.getQuality()) < 2 }; });
+console.log('before', JSON.stringify(await read()));
+await page.setViewportSize({ width: 1100, height: 700 });
+await page.waitForTimeout(1500);
+console.log('after ', JSON.stringify(await read()));
+await browser.close();

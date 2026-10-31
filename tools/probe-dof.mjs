@@ -1,0 +1,13 @@
+import { chromium } from 'playwright-core';
+const browser = await chromium.launch({ channel: 'msedge', headless: true, args: ['--enable-unsafe-swiftshader','--ignore-gpu-blocklist'] });
+const page = await browser.newPage({ viewport: { width: 1600, height: 900 } });
+await page.goto('http://127.0.0.1:5273/', { waitUntil: 'load', timeout: 60000 });
+await page.waitForFunction('window.__READY__ === true', { timeout: 40000 });
+await page.waitForTimeout(2500);
+await page.evaluate(() => { window.__SCENE__.dof.bokehScale = 0; });
+await page.waitForTimeout(700);
+await page.screenshot({ path: 'shots/93-dof0.png' });
+await page.evaluate(() => { window.__SCENE__.dof.bokehScale = 9; });
+await page.waitForTimeout(900);
+await page.screenshot({ path: 'shots/94-dof9.png' });
+await browser.close();

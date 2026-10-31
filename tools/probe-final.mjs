@@ -1,0 +1,15 @@
+import { chromium } from 'playwright-core';
+const browser = await chromium.launch({ channel: 'msedge', headless: true });
+const page = await browser.newPage({ viewport: { width: 1600, height: 900 }, deviceScaleFactor: 1 });
+const logs = [];
+page.on('console', (m) => { if (m.type() === 'error') logs.push(m.text().slice(0, 160)); });
+page.on('pageerror', (e) => logs.push('PAGEERROR ' + String(e).slice(0, 160)));
+await page.goto('http://127.0.0.1:5273/', { waitUntil: 'load', timeout: 60000 });
+await page.waitForFunction('window.__READY__ === true', { timeout: 40000 });
+await page.waitForTimeout(8000);
+await page.click('#q-btn');
+await page.waitForTimeout(1200);
+const mode = await page.evaluate(() => ({ mode: window.__SCENE__.getQualityMode(), q: +window.__SCENE__.getQuality().toFixed(2), label: document.getElementById('q-btn').textContent }));
+await page.screenshot({ path: 'shots/127-hero-final.png' });
+console.log(JSON.stringify({ ...mode, errors: logs }));
+await browser.close();

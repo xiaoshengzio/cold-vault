@@ -1,0 +1,26 @@
+
+import { chromium } from 'playwright-core';
+const url = process.argv[2];
+const browser = await chromium.launch({ channel: 'msedge', args: ['--ignore-gpu-blocklist','--force_high_performance_gpu'] });
+const ctx = await browser.newContext({ viewport: { width: 1600, height: 900 }, deviceScaleFactor: 1 });
+const page = await ctx.newPage();
+const errs = [];
+page.on('pageerror', (e) => errs.push('ERR ' + e.message));
+page.on('console', (m) => { if (m.type() === 'error') errs.push('CONSOLE ' + m.text().slice(0, 120)); });
+await page.goto(url, { waitUntil: 'commit' });
+await page.waitForTimeout(12000);
+const st = await page.evaluate(() => window.__SCENE__?.getStats?.() ?? null);
+await page.mouse.move(1100, 420);
+await page.waitForTimeout(600);
+await page.screenshot({ path: 'shots/203-prod-final.png' });
+await page.mouse.down(); await page.mouse.up();
+await page.waitForTimeout(1400);
+await page.screenshot({ path: 'shots/204-prod-burst.png' });
+const after = await page.evaluate(() => ({ settled: window.__SCENE__?.specimen?.settled, frames: window.__FRAMES__ }));
+await page.waitForTimeout(2600);
+await page.screenshot({ path: 'shots/205-prod-settled.png' });
+const fin = await page.evaluate(() => ({ settled: window.__SCENE__?.specimen?.settled }));
+console.log('stats', JSON.stringify(st));
+console.log('after burst', JSON.stringify(after), 'final', JSON.stringify(fin));
+console.log('errors', errs.length ? errs.slice(0, 4).join(' | ') : 'none');
+await browser.close();

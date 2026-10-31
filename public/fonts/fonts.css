@@ -1,0 +1,36 @@
+/* self-hosted latin subsets */
+@font-face{
+  font-family:"Instrument Serif";
+  font-style:italic;
+  font-weight:400;
+  font-display:swap;
+  src:url("./instrument-italic-400.woff2") format("woff2");
+}
+@font-face{
+  font-family:"Instrument Serif";
+  font-style:normal;
+  font-weight:400;
+  font-display:swap;
+  src:url("./instrument-normal-400.woff2") format("woff2");
+}
+@font-face{
+  font-family:"JetBrains Mono";
+  font-style:normal;
+  font-weight:300;
+  font-display:swap;
+  src:url("./jbmono-normal-300.woff2") format("woff2");
+}
+@font-face{
+  font-family:"JetBrains Mono";
+  font-style:normal;
+  font-weight:400;
+  font-display:swap;
+  src:url("./jbmono-normal-400.woff2") format("woff2");
+}
+@font-face{
+  font-family:"JetBrains Mono";
+  font-style:normal;
+  font-weight:500;
+  font-display:swap;
+  src:url("./jbmono-normal-500.woff2") format("woff2");
+}

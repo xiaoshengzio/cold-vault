@@ -1,0 +1,10 @@
+import { chromium } from 'playwright-core';
+const browser = await chromium.launch({ channel: 'msedge', headless: true, args: ['--enable-unsafe-swiftshader','--ignore-gpu-blocklist'] });
+const page = await browser.newPage({ viewport: { width: 1600, height: 900 } });
+const errs = [];
+page.on('pageerror', e => errs.push(e.stack ? e.stack.split('\n').slice(0, 8).join(' | ') : String(e)));
+await page.goto('http://127.0.0.1:5273/', { waitUntil: 'load', timeout: 60000 });
+await page.waitForFunction('window.__READY__ === true', { timeout: 40000 });
+await page.waitForTimeout(5000);
+console.log(JSON.stringify(errs.slice(0, 3), null, 1));
+await browser.close();
