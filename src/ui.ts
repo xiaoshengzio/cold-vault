@@ -183,10 +183,21 @@ export function initUI({ rig }: UIDeps) {
     await new Promise((r) => setTimeout(r, 340));
   };
 
+  // 进度以主程序真实阶段为准（window.__BOOT__）。主线程被着色器编译占住时
+  // rAF 停摆，进度条靠 CSS transition 继续补间，画面不会"死"在一个数字上。
+  let creep = 6;
   const ramp = () => {
-    const target = done ? 100 : Math.min(92, 8 + performance.now() / 26);
-    if (shown < target) paint(Math.min(target, shown + Math.max(0.7, (target - shown) * 0.14)));
-    if (!done) requestAnimationFrame(ramp);
+    if (done) {
+      if (shown < 100) paint(Math.min(100, shown + Math.max(1.2, (100 - shown) * 0.22)));
+      if (shown < 100) requestAnimationFrame(ramp);
+      return;
+    }
+    const b = (window as any).__BOOT__ as { pct: number; label: string } | undefined;
+    if (b && b.label && statusEl) statusEl.textContent = b.label;
+    creep = Math.min(96, creep + 0.06);
+    const target = Math.min(96, Math.max(creep, b ? b.pct : 0));
+    if (shown < target) paint(Math.min(target, shown + Math.max(0.6, (target - shown) * 0.18)));
+    requestAnimationFrame(ramp);
   };
   paint(0);
   requestAnimationFrame(ramp);

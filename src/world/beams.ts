@@ -43,7 +43,9 @@ const fragmentShader = /* glsl */ `
   }
 
   void main(){
-    float across = pow(clamp(sin(3.14159265 * clamp(vUv.x, 0.0, 1.0)), 0.0, 1.0), 2.15);
+    // 高斯横向衰减：光柱的边界必须是"渐隐"而不是一条硬边，
+    // 否则 15 条硬边薄片读作一堆激光线而不是从缝隙里漏下来的光。
+    float across = exp(-pow((vUv.x - 0.5) * 4.4, 2.0));
     float head = smoothstep(0.0, 0.22, vUv.y);
     // shafts thin out with distance instead of running as glowing tubes
     float tail = exp(-vUv.y * 3.4);
@@ -123,7 +125,8 @@ export function buildBeams(params: {
     g.quaternion.setFromUnitVectors(up, dir);
 
     for (let k = 0; k < 2; k++) {
-      const geo = new THREE.PlaneGeometry(gapH * 0.92, length, 1, 1);
+      // 比真实缝隙宽 2.6 倍，靠 across 的高斯把它收成柔和的芯
+      const geo = new THREE.PlaneGeometry(gapH * 2.6, length, 1, 1);
       geo.translate(0, length / 2, 0);
       const m = new THREE.Mesh(geo, material);
       m.rotation.y = (k * Math.PI) / 2;

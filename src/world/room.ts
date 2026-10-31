@@ -69,10 +69,12 @@ const skyFrag = /* glsl */ `
     float veil = smoothstep(1.25, 0.0, r);
     float g = core + horizon * 0.24 + veil * 0.18;
 
-    vec3 warm = vec3(1.0, 0.78, 0.52);
+    vec3 warm = vec3(1.0, 0.93, 0.83);
     vec3 cool = vec3(0.22, 0.30, 0.48);
     vec3 col = mix(cool, warm, clamp(core * 1.30 + veil * 0.45, 0.0, 1.0));
-    col *= 0.10 + g * 1.35;
+    col *= 0.052 + g * 0.92;
+  // 暖色偏移：纯白缝隙在暗场里像荧光灯管，带琥珀才像"天光漏进来"
+  col *= vec3(1.0, 0.95, 0.90);
     // faint drifting veils so the glare is not a flat plate
     float band = sin(vUv.y * 9.0 + uTime * 0.25 + sin(vUv.x * 5.0) * 0.6);
     col *= 1.0 + band * 0.05;
@@ -127,18 +129,46 @@ export function buildRoom(M: VaultMaterials): RoomBuild {
   // 百叶只负责投影：材质关掉 colorWrite/depthWrite 后叶片本身不出现，
   // 但阴影贴图照常渲染 —— 于是"光从百叶缝里切进来"由地面上的光刃来讲述，
   // 窗本身是一块干净的过曝面，而不是一排悬浮的白色塑料条。
-  const slatMat = new THREE.MeshBasicMaterial({ color: 0x060607 });
+  // 叶片用近黑金属而不是纯黑 Basic：纯黑叶片在亮背景下只是一道剪影，
+  // 看不见"叶片"本身；给它一点金属感，缝隙里透出的天光才会在叶片边缘拉出细高光。
+  const slatMat = new THREE.MeshStandardMaterial({
+    color: 0x0b0c0f,
+    roughness: 0.46,
+    metalness: 0.78,
+    envMapIntensity: 0.35,
+    side: THREE.DoubleSide,
+  });
   const slats: THREE.Mesh[] = [];
+  const SLAT_RECESS = 0.34;
   for (let i = 0; i < ROOM.SLATS; i++) {
     const t = (i + 0.5) / ROOM.SLATS;
     const y = AY0 + t * (AY1 - AY0);
-    const s = box(AW - 0.04, 0.085, ROOM.SLAT_DEPTH, slatMat as unknown as typeof M.steel, {
-      pos: [AX, y, BACK_Z],
+    // 加厚 + 后退进墙体：叶片从"贴墙的白条"变成"洞里的一层深色鳞片"，
+    // 天光只在缝里露出一道细线，进深由洞口内衬的阴影给出。
+    const s = box(AW - 0.03, 0.215, 0.24, slatMat as unknown as typeof M.steel, {
+      pos: [AX, y, BACK_Z - SLAT_RECESS],
       rot: [THREE.MathUtils.degToRad(ROOM.SLAT_TILT), 0, 0],
       unit: 0.7,
     });
     slats.push(s);
     g.add(s);
+  }
+
+  // 洞口内衬：制造"墙有厚度"的关键，缺了它窗就是一张贴在墙上的发光纸
+  const revealMat = (M.wallDark as THREE.Material).clone() as THREE.MeshStandardMaterial;
+  revealMat.color = new THREE.Color(0.030, 0.030, 0.033);
+  const REVEAL_Z0 = BACK_Z + 0.02;
+  const REVEAL_DEPTH = 0.86;
+  const revealWall = (w: number, h: number, x: number, y: number) =>
+    g.add(box(w, h, REVEAL_DEPTH, revealMat, { pos: [x, y, REVEAL_Z0 - REVEAL_DEPTH / 2], unit: 2.2 }));
+  revealWall(0.14, AY1 - AY0 + 0.3, AX - AW / 2 - 0.07, (AY0 + AY1) / 2);
+  revealWall(0.14, AY1 - AY0 + 0.3, AX + AW / 2 + 0.07, (AY0 + AY1) / 2);
+  revealWall(AW + 0.28, 0.14, AX, AY1 + 0.07);
+  revealWall(AW + 0.28, 0.14, AX, AY0 - 0.07);
+
+  // 中梃：两道竖框，把窗分成三扇，条纹才不像条形码
+  for (const mx of [-AW / 2 + AW / 3, AW / 2 - AW / 3]) {
+    g.add(box(0.075, AY1 - AY0 + 0.2, 0.16, M.steel, { pos: [AX + mx, (AY0 + AY1) / 2, BACK_Z - 0.30], unit: 1.2 }));
   }
 
   // aperture frame
@@ -158,8 +188,10 @@ export function buildRoom(M: VaultMaterials): RoomBuild {
     toneMapped: false,
     fog: false,
   });
-  const sky = new THREE.Mesh(new THREE.PlaneGeometry(26, 17), skyMat);
-  sky.position.set(AX, 3.6, BACK_Z - 3.4);
+  // 天光板紧贴百叶背后：离得越远，"透过缝隙看到的景"就因视差被撑成一根根粗亮条，
+  // 读作"发光的货架"而不是窗。0.16 的间距让缝隙始终是一条细线。
+  const sky = new THREE.Mesh(new THREE.PlaneGeometry(18, 14), skyMat);
+  sky.position.set(AX, 3.6, BACK_Z - 0.62);
   sky.castShadow = false;
   sky.receiveShadow = false;
   g.add(sky);
@@ -174,8 +206,10 @@ export function buildRoom(M: VaultMaterials): RoomBuild {
     fog: false,
     toneMapped: false,
   });
-  const haze = new THREE.Mesh(new THREE.PlaneGeometry(AW + 1.2, AY1 - AY0 + 1.0), hazeMat);
-  haze.position.set(AX, (AY0 + AY1) / 2, BACK_Z - 0.9);
+  const haze = new THREE.Mesh(new THREE.PlaneGeometry(AW + 0.9, AY1 - AY0 + 0.8), hazeMat);
+  // 雾卡必须放在百叶背后：放在前面等于给整扇窗蒙了一层发光纱，
+  // 读作"一块发亮的画板"，缝隙的形就被糊掉了。
+  haze.position.set(AX, (AY0 + AY1) / 2, BACK_Z - 0.50);
   haze.renderOrder = 2;
   g.add(haze);
 
@@ -193,7 +227,7 @@ export function buildRoom(M: VaultMaterials): RoomBuild {
   g.add(coveR);
 
   // 圆形展台：标本悬停在其正上方，把构图"落地"
-  const plinthStone = new THREE.MeshStandardMaterial({ color: 0x0a0b0d, roughness: 0.88, metalness: 0.0, envMapIntensity: 0.12 });
+  const plinthStone = new THREE.MeshStandardMaterial({ color: 0x0d0e12, roughness: 0.58, metalness: 0.0, envMapIntensity: 0.45 });
   const plinthBase = new THREE.Mesh(new THREE.CylinderGeometry(0.80, 0.86, 0.82, 48, 1), plinthStone);
   plinthBase.position.set(-0.62, 0.41, -4.30);
   plinthBase.castShadow = true;

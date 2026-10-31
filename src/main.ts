@@ -14,6 +14,12 @@ import { DepthOfFieldEffect } from 'postprocessing';
 import { RectAreaLightUniformsLib } from 'three/examples/jsm/lights/RectAreaLightUniformsLib.js';
 import { initUI } from './ui';
 
+const T0 = performance.now();
+const stage = (s: string, pct: number) => {
+  (window as any).__BOOT__ = { pct, label: s };
+  console.log('[cv] ' + s + ' ' + Math.round(performance.now() - T0));
+};
+
 const canvas = document.querySelector<HTMLCanvasElement>('#gl')!;
 
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance', stencil: false });
@@ -23,12 +29,14 @@ renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFShadowMap;
 renderer.toneMapping = THREE.NoToneMapping;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
+stage('初始化渲染器', 8);
 const scene = new THREE.Scene();
 
 const camera = new THREE.PerspectiveCamera(38, innerWidth / innerHeight, 0.1, 120);
 const rig = new CameraRig(camera);
 
 const M = createMaterials();
+stage('调制材料', 26);
 const envTex = buildEnvironment(renderer);
 scene.environment = envTex;
 
@@ -38,8 +46,10 @@ const crystalEnv = buildCrystalEnvironment(renderer);
 M.brass.envMap = artefactEnv;
 M.glass.envMap = crystalEnv;
 M.brass.envMapIntensity = 1.15;
+stage('烘焙环境光', 42);
 const room = buildRoom(M);
 scene.add(room.group);
+stage('浇筑库房', 52);
 
 /* --------------------------------------------------------------- lighting */
 const sunDir = new THREE.Vector3(-0.34, -0.40, 0.85).normalize();
@@ -79,7 +89,7 @@ const beams = buildBeams({
   slatTiltDeg: ROOM.SLAT_TILT,
   sunDir,
   color: new THREE.Color(1.0, 0.80, 0.56),
-  intensity: 0.40,
+  intensity: 0.30,
   length: 26,
 });
 scene.add(beams.group);
@@ -96,26 +106,100 @@ const dust = buildDust({
 dust.points.position.set(0, 0, 0);
 dust.points.geometry.translate(0, 0.2, -15);
 scene.add(dust.points);
+stage('注入冷气与尘埃', 58);
 
 /* --------------------------------------------------------------- artifact */
 const specimen = buildSpecimen(M, artefactEnv, crystalEnv);
-specimen.group.position.set(-0.62, 2.30, -4.30);
-specimen.group.scale.setScalar(0.78);
+stage('锁定标本', 66);
+
+/**
+ * 真实的镜面反射。
+ * 渐变棚环境只能给出一个平滑的灰度渐变，每个晶面都是同一个色值 →
+ * 多面体读作一张平板。这里在标本位置用 CubeCamera 把房间（尤其是那扇亮窗）
+ * 烘成一张立方体贴图，晶面反射的就是"这间屋子"，面与面之间才有明暗落差。
+ * 只烘一次：静止的标本不需要每帧更新，成本一次性 6 个 256px pass。
+ */
+function bakeSpecimenReflection() {
+  const rt = new THREE.WebGLCubeRenderTarget(256, { type: THREE.HalfFloatType });
+  const cam = new THREE.CubeCamera(0.1, 40, rt);
+  cam.position.set(-0.34, 2.34, -4.10);
+  const wasVisible = specimen.group.visible;
+  specimen.group.visible = false;
+  // 只在烘焙时存在的"棚拍灯"：三个高亮面板把房间的黑反射改成有方向的光斑。
+  // 它们烘完立刻移除，所以永远不会出现在正式画面里。
+  const target = new THREE.Vector3(-0.34, 2.34, -4.10);
+  const panels: THREE.Mesh[] = [];
+  // 柔光箱不能是硬边矩形：抛光晶面会把矩形原样镜射成一块贴纸。
+  // 用椭圆渐变纹理把它做成"有边缘过渡的光斑"，反射到面上才是柔和的高光带。
+  const softbox = (() => {
+    const c = document.createElement('canvas');
+    c.width = c.height = 128;
+    const g2 = c.getContext('2d')!;
+    g2.fillStyle = '#000';
+    g2.fillRect(0, 0, 128, 128);
+    const grd = g2.createRadialGradient(64, 64, 6, 64, 64, 64);
+    grd.addColorStop(0.0, '#ffffff');
+    grd.addColorStop(0.45, 'rgba(255,255,255,0.86)');
+    grd.addColorStop(0.78, 'rgba(255,255,255,0.22)');
+    grd.addColorStop(1.0, '#000000');
+    g2.fillStyle = grd;
+    g2.fillRect(0, 0, 128, 128);
+    const tx = new THREE.CanvasTexture(c);
+    tx.colorSpace = THREE.SRGBColorSpace;
+    return tx;
+  })();
+  const panel = (
+    w: number, h: number, pos: [number, number, number], rgb: [number, number, number],
+  ) => {
+    const m = new THREE.Mesh(
+      new THREE.PlaneGeometry(w, h),
+      new THREE.MeshBasicMaterial({
+        map: softbox,
+        color: new THREE.Color(rgb[0], rgb[1], rgb[2]),
+        toneMapped: false,
+        side: THREE.DoubleSide,
+      }),
+    );
+    m.position.set(pos[0], pos[1], pos[2]);
+    m.lookAt(target);
+    scene.add(m);
+    panels.push(m);
+  };
+  panel(3.4, 4.6, [3.10, 3.10, -1.90], [2.10, 1.72, 1.30]);   // 右前暖柔光箱
+  panel(0.70, 5.20, [-3.10, 2.70, -4.60], [0.40, 0.54, 0.84]); // 左侧冷光条
+  panel(2.60, 2.60, [-0.10, 6.30, -4.10], [1.85, 1.80, 1.66]); // 顶部柔光箱
+  // 大面柔光：黑曜石面上要是只有两点高光，其余全黑就成了黑板。
+  // 这块低亮度大板负责把中间调填起来，让每个面的朝向都能读出不同的灰。
+  panel(5.20, 6.00, [-3.90, 2.60, -6.60], [0.42, 0.46, 0.56]);
+  cam.update(renderer, scene);
+  for (const m of panels) { scene.remove(m); m.geometry.dispose(); (m.material as THREE.Material).dispose(); }
+  specimen.group.visible = wasVisible;
+  const mat = (specimen.pieces[0]?.mesh.material as THREE.MeshPhysicalMaterial) ?? null;
+  if (mat) {
+    mat.envMap = rt.texture;
+    mat.envMapIntensity = 2.10;
+    mat.needsUpdate = true;
+  }
+}
+specimen.group.position.set(-0.34, 2.47, -4.10);
+specimen.group.scale.setScalar(0.92);
 specimen.group.rotation.y = 0.6;
 scene.add(specimen.group);
 
 // area lights give polished brass long, crisp specular streaks
 RectAreaLightUniformsLib.init();
 
-const warmRim = new THREE.RectAreaLight(0xffd8ab, 2.1, 2.6, 1.0);
+// 矩形灯（RectAreaLight）会让每个受光材质多出一整套 LTC 积分循环，
+// 首帧编译这些变体在本机要 6–9 秒。除了最关键的一道冷边光，其余都用聚光灯等效替代。
+const warmRim = new THREE.SpotLight(0xffd8ab, 26.0, 14.0, 0.62, 0.95, 1.5);
 warmRim.position.set(0.70, 4.15, -1.10);
-warmRim.lookAt(specimen.group.position);
-scene.add(warmRim);
+warmRim.target.position.copy(specimen.group.position);
+scene.add(warmRim, warmRim.target);
 
-const coolKick = new THREE.RectAreaLight(0xa9b6c8, 0.75, 1.8, 2.4);
+const coolKick = new THREE.SpotLight(0xa9b6c8, 9.0, 12.0, 0.95, 1.0, 1.5);
 coolKick.position.set(-2.80, 2.30, -2.10);
-coolKick.lookAt(specimen.group.position);
-scene.add(coolKick);
+coolKick.target.position.copy(specimen.group.position);
+scene.add(coolKick, coolKick.target);
 
 // soft halo behind the artefact: separation + something for the glass to refract
 const haloMat = new THREE.ShaderMaterial({
@@ -123,7 +207,7 @@ const haloMat = new THREE.ShaderMaterial({
   depthWrite: false,
   blending: THREE.AdditiveBlending,
   toneMapped: false,
-  uniforms: { uColor: { value: new THREE.Color(0.055, 0.016, 0.013) } },
+  uniforms: { uColor: { value: new THREE.Color(0.030, 0.011, 0.009) } },
   vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
   fragmentShader: `
     varying vec2 vUv; uniform vec3 uColor;
@@ -135,8 +219,14 @@ const haloMat = new THREE.ShaderMaterial({
     }`,
 });
 const halo = new THREE.Mesh(new THREE.PlaneGeometry(7.0, 6.4), haloMat);
-halo.position.set(-0.62, 2.30, -9.60);
+halo.position.set(-0.34, 2.47, -9.20);
 scene.add(halo);
+
+// 背后冷光：只描标本的左缘，让黑色主体从黑底里"立"起来
+const coldRim = new THREE.SpotLight(0x93b6ff, 22.0, 9.0, 0.34, 0.9, 1.6);
+coldRim.position.set(-2.95, 3.75, -6.65);
+coldRim.target.position.copy(specimen.group.position);
+scene.add(coldRim, coldRim.target);
 
 // click impact: one short camera shake (a ring overlay was tried and read as sci-fi noise)
 let burstAge = 99;
@@ -146,24 +236,31 @@ keySpot.position.set(-2.60, 5.20, 1.60);
 keySpot.target.position.copy(specimen.group.position);
 scene.add(keySpot);
 scene.add(keySpot.target);
+// 暖轮廓：从窗口那一侧打过来，把晶柱右缘烧出一道暖边，
+// 与左侧冷光形成冷暖对峙——纯黑的晶面靠这两道边才读得出"厚度"。
+const warmEdge = new THREE.SpotLight(0xffb478, 16.0, 12.0, 0.20, 0.92, 1.5);
+warmEdge.position.set(3.25, 2.95, -7.10);
+warmEdge.target.position.copy(specimen.group.position);
+scene.add(warmEdge, warmEdge.target);
 
 // 冷边光：从背后左侧擦过，把晶体从黑底里"抠"出来
 const edgeRim = new THREE.RectAreaLight(0x9fc6ff, 7.4, 0.55, 3.6);
 edgeRim.position.set(-3.40, 3.10, -2.60);
 edgeRim.lookAt(specimen.group.position);
-scene.add(edgeRim);
+// TEMP-NORECT scene.add(edgeRim);
 
-const kissTop = new THREE.RectAreaLight(0xfff2e0, 1.5, 0.9, 0.9);
+const kissTop = new THREE.SpotLight(0xfff2e0, 14.0, 9.0, 0.5, 0.92, 1.4);
 kissTop.position.set(-1.00, 4.45, -1.40);
-kissTop.lookAt(specimen.group.position);
-scene.add(kissTop);
+kissTop.target.position.copy(specimen.group.position);
+scene.add(kissTop, kissTop.target);
 
 /* -------------------------------------------------------------------- post */
 // 全屏 pass 越少越省。bloom 与 DOF 都是卷积效果，本来就不会被合进同一个 shader，
 // 因此拆成独立 pass 几乎不增加开销，却换来「可以单独关掉景深而不降分辨率」。
 // 半浮点缓冲区：bloom 阈值要靠 1.0 以上的 HDR 值，8bit 会把高光压平。
 // 抗锯齿用 SMAA 而不是 4x MSAA：实测在这类集显上 MSAA 的带宽开销远大于一个 SMAA pass。
-const composer = new EffectComposer(renderer, { frameBufferType: THREE.HalfFloatType });
+const composer = new EffectComposer(renderer);
+stage('预压缩缓冲', 69);
 composer.addPass(new RenderPass(scene, camera));
 
 const bloom = new BloomEffect({
@@ -179,10 +276,11 @@ const dof = new DepthOfFieldEffect(camera, {
   bokehScale: 1.35,
   resolutionScale: 0.5,   // 景深在半分辨率上算，肉眼几乎分辨不出
 });
-const focusTarget = new THREE.Vector3(-0.62, 2.30, -4.30);
+const focusTarget = new THREE.Vector3(-0.34, 2.47, -4.10);
 dof.target = focusTarget;
 const dofPass = new EffectPass(camera, dof);
-composer.addPass(dofPass);
+// TEMP-NODOFPASS
+// composer.addPass(dofPass);
 
 composer.addPass(new EffectPass(camera,
   new ToneMappingEffect({ mode: ToneMappingMode.ACES_FILMIC }),
@@ -195,6 +293,7 @@ const caPass = new EffectPass(camera,
   new ChromaticAberrationEffect({ offset: new THREE.Vector2(0.00022, 0.00034), radialModulation: true, modulationOffset: 0.38 }),
 );
 composer.addPass(caPass);
+stage('装配光学', 72);
 
 /* ------------------------------------------------------------------- input */
 const ndc = new THREE.Vector2(0, 0);
@@ -203,22 +302,93 @@ const attractorPlane = new THREE.Plane();
 const attractor = new THREE.Vector3();
 const attractorTarget = new THREE.Vector3();
 let hasPointer = false;
-const specimenCentre = new THREE.Vector3(-0.62, 2.30, -4.30);
+const specimenCentre = new THREE.Vector3(-0.34, 2.47, -4.10);
+
+/**
+ * 交互层：拖动检视（绕标本转）+ 悬停预兆 + 点击碎裂。
+ * 关键约束：拖动与点击必须能区分，否则用户想转个角度就把它打碎了。
+ */
+const drag = {
+  down: false,
+  moved: 0,
+  t0: 0,
+  lastT: 0,
+  lastX: 0,
+  lastY: 0,
+  rotY: 0,
+  rotX: 0,
+  // 角速度（rad/s），松手后按 exp(-3.2·dt) 衰减 —— 帧率无关
+  velY: 0,
+  velX: 0,
+  idle: 99,
+};
+const YAW_LIMIT = 2.10;
+const PITCH_LIMIT = 0.34;
+const yawPerPx = () => (Math.PI * 1.1) / Math.max(900, Math.min(innerWidth, 1600));
+let hoverAmt = 0;
+let isHot = false;
+const projected = new THREE.Vector3();
+const clamp01 = (x: number) => (x < 0 ? 0 : x > 1 ? 1 : x);
 
 addEventListener('pointermove', (e) => {
   hasPointer = true;
-  rig.setMouse((e.clientX / innerWidth) * 2 - 1, (e.clientY / innerHeight) * 2 - 1);
-  ndc.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
+  const nx = (e.clientX / innerWidth) * 2 - 1;
+  const ny = (e.clientY / innerHeight) * 2 - 1;
+  rig.setMouse(nx, ny);
+  ndc.set(nx, -ny);
   raycaster.setFromCamera(ndc, camera);
   if (raycaster.ray.intersectPlane(attractorPlane, attractorTarget)) {
     attractor.copy(attractorTarget);
   }
+
+  if (drag.down) {
+    const dx = e.clientX - drag.lastX;
+    const dy = e.clientY - drag.lastY;
+    const now = performance.now();
+    const dtE = Math.max(0.008, (now - drag.lastT) / 1000);
+    drag.moved += Math.abs(dx) + Math.abs(dy);
+    drag.lastX = e.clientX;
+    drag.lastY = e.clientY;
+    drag.lastT = now;
+    const dYaw = dx * yawPerPx();
+    const dPitch = dy * yawPerPx() * 0.55;
+    drag.rotY = Math.max(-YAW_LIMIT, Math.min(YAW_LIMIT, drag.rotY + dYaw));
+    drag.rotX = Math.max(-PITCH_LIMIT, Math.min(PITCH_LIMIT, drag.rotX + dPitch));
+    drag.velY = Math.max(-2.6, Math.min(2.6, dYaw / dtE));
+    drag.velX = Math.max(-1.4, Math.min(1.4, dPitch / dtE));
+    drag.idle = 0;
+  }
 });
+
 addEventListener('pointerdown', (e) => {
   const t = e.target;
   if (t instanceof Element && t.closest('a, button, [data-hover]')) return;
-  specimen.burst(1);
-  burstAge = 0;
+  drag.down = true;
+  drag.moved = 0;
+  drag.t0 = performance.now();
+  drag.lastT = drag.t0;
+  drag.lastX = e.clientX;
+  drag.lastY = e.clientY;
+  drag.velY = 0;
+  drag.velX = 0;
+  document.body.classList.add('is-grabbing');
+});
+
+addEventListener('pointerup', () => {
+  if (!drag.down) return;
+  drag.down = false;
+  document.body.classList.remove('is-grabbing');
+  const quick = performance.now() - drag.t0 < 420;
+  // 位移小于 7px 才算点击：拖动检视不应该把标本打碎
+  if (drag.moved < 7 && quick) {
+    specimen.burst(1);
+    burstAge = 0;
+  }
+});
+
+addEventListener('pointercancel', () => {
+  drag.down = false;
+  document.body.classList.remove('is-grabbing');
 });
 addEventListener('pointerleave', () => { /* keep last attractor */ });
 
@@ -385,7 +555,7 @@ function onResize() {
   composer.setSize(innerWidth, innerHeight);
 
   // 竖屏把标本收小，别压住标题
-  specimen.group.scale.setScalar(camera.aspect < 1 ? 0.70 : 0.88);
+  specimen.group.scale.setScalar(camera.aspect < 1 ? 0.86 : 0.88);
   // 竖屏：展台在近处会变成一只占满下半屏的黑鼓，且压住文案 —— 直接收起，标本浮在虚空里
   const portrait = camera.aspect < 1;
   room.group?.traverse((o: THREE.Object3D) => {
@@ -412,7 +582,7 @@ try {
 } catch (e) {
   console.warn('[cold-vault] precompile failed', e);
 } finally {
-  // 碎片始终可见（首版观感），整块只是退化备份
+  // 静置画碎片（解理面常显），整块只作退化备份
   specimen.pieces.forEach((pc) => { pc.mesh.visible = true; });
   specimen.solid.visible = false;
 }
@@ -427,19 +597,17 @@ let shadowTick = 0;
 // 主分辨率上付，驱动会把它拖到 6–10 秒并阻塞主线程 —— 用户看到的就是"卡死"。
 // 小尺寸跑完之后，主分辨率首帧只剩几毫秒。
 const warmComposer = async () => {
-  const t0 = performance.now();
+  stage('编译冷光着色器', 78);
+  // 极小尺寸先跑一遍：着色器变体与渲染目标的创建成本在这里付掉，
+  // 否则主分辨率首帧会被驱动拖到数秒并阻塞主线程（用户看到的是"卡死"）。
   composer.setSize(240, 150);
   composer.render(0.016);
-  
-  composer.render(0.016);
-  
+  stage('合成第一帧', 90);
   await new Promise<void>((r) => requestAnimationFrame(() => r()));
   applyRes(resScale);
   await new Promise<void>((r) => requestAnimationFrame(() => r()));
-  const t1 = performance.now();
   composer.render(0.016);
-  
-  if (DBG) console.log('[cold-vault] warmup', Math.round(t1 - t0), 'full', Math.round(performance.now() - t1));
+  stage('就绪', 97);
 };
 
 const startLoop = () => renderer.setAnimationLoop(() => {
@@ -451,11 +619,25 @@ const startLoop = () => renderer.setAnimationLoop(() => {
 
   if (++shadowTick % 6 === 0) sun.shadow.needsUpdate = true;
 
-  specimen.group.rotation.y = 0.6 + Math.sin(t * 0.11) * 0.34;
+  // 拖动惯性：松手后按角速度滑行，帧率无关；空闲 2.6s 后缓慢回到正面
+  if (!drag.down) {
+    drag.rotY = Math.max(-YAW_LIMIT, Math.min(YAW_LIMIT, drag.rotY + drag.velY * dt));
+    drag.rotX = Math.max(-PITCH_LIMIT, Math.min(PITCH_LIMIT, drag.rotX + drag.velX * dt));
+    drag.velY *= Math.exp(-3.2 * dt);
+    drag.velX *= Math.exp(-3.2 * dt);
+    drag.idle += dt;
+    if (drag.idle > 2.6) {
+      drag.rotY = THREE.MathUtils.damp(drag.rotY, 0, 0.55, dt);
+      drag.rotX = THREE.MathUtils.damp(drag.rotX, 0, 0.55, dt);
+    }
+  }
+  const sway = Math.hypot(drag.velY, drag.velX) > 0.02 || drag.down ? 0.16 : 1;
+  specimen.group.rotation.y = 0.6 + Math.sin(t * 0.11) * 0.34 * sway + drag.rotY;
+  specimen.group.rotation.x = drag.rotX;
   specimen.rings.forEach((r) => {
     r.holder.rotateOnAxis(r.axis, dt * r.speed);
   });
-  specimen.group.position.y = 2.30 + Math.sin(t * 0.62) * 0.05;
+  specimen.group.position.y = 2.47 + Math.sin(t * 0.62) * 0.045;
 
   attractorPlane.setFromNormalAndCoplanarPoint(
     camera.getWorldDirection(new THREE.Vector3()).negate(),
@@ -463,7 +645,22 @@ const startLoop = () => renderer.setAnimationLoop(() => {
   );
   raycaster.setFromCamera(ndc, camera);
   raycaster.ray.intersectPlane(attractorPlane, attractorTarget);
-  specimen.update(dt, t, hasPointer ? attractorTarget : null, camera);
+  // 悬停预兆：指针离标本越近，缝隙张得越开、内核越亮
+  projected.copy(specimenCentre).project(camera);
+  const sx = (projected.x * 0.5 + 0.5) * innerWidth;
+  const sy = (-projected.y * 0.5 + 0.5) * innerHeight;
+  const pointerX = ndc.x * 0.5 * innerWidth + innerWidth * 0.5;
+  const pointerY = -ndc.y * 0.5 * innerHeight + innerHeight * 0.5;
+  const hotR = Math.min(innerWidth, innerHeight) * 0.30;
+  const distPx = hasPointer ? Math.hypot(pointerX - sx, pointerY - sy) : 9999;
+  const hoverTarget = clamp01(1 - (distPx - hotR * 0.55) / (hotR * 0.95));
+  hoverAmt += (hoverTarget - hoverAmt) * Math.min(1, dt * 7.0);
+  const hot = hoverAmt > 0.45;
+  if (hot !== isHot) {
+    isHot = hot;
+    document.body.classList.toggle('is-hot', isHot);
+  }
+  specimen.update(dt, t, hasPointer ? attractorTarget : null, camera, hoverAmt);
 
   warmRim.intensity = 3.35 + Math.sin(t * 1.7) * 0.30 + Math.sin(t * 4.3) * 0.12;
 
@@ -488,8 +685,17 @@ const startLoop = () => renderer.setAnimationLoop(() => {
   sampleQuality(dt * 1000);
   frames++;
   if (frames === 3) (window as any).__READY__ = true;
+  // 反射烘焙必须放在画面跑起来之后：它要同步渲染 6 个立方体面，
+  // 放在启动路径上会把首帧的合成挤掉（低端机会直接卡在白屏/加载页）。
+  if (frames === 6) bakeOnce();
 });
 
+let reflectionBaked = false;
+const bakeOnce = () => {
+  if (reflectionBaked) return;
+  reflectionBaked = true;
+  try { bakeSpecimenReflection(); } catch (e) { console.warn('[cold-vault] reflection bake failed', e); }
+};
 if (NO_POST) startLoop();
 else warmComposer().then(startLoop).catch((e) => {
   console.warn('[cold-vault] warmup failed', e);

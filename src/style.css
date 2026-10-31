@@ -31,7 +31,8 @@ html{
   background:var(--ink);
   -webkit-text-size-adjust:100%;
 }
-html,body{ margin:0; padding:0; }
+html,body{
+  -webkit-user-select:none; user-select:none; margin:0; padding:0; }
 body{
   font-family:var(--serif);
   color:var(--bone);
@@ -545,7 +546,7 @@ body.is-touch .cursor{ display:none; }
 .pl-bar span{
   position:absolute; inset:0; background:var(--bone);
   transform:scaleX(0); transform-origin:left;
-  transition:transform .4s linear;
+  transition:transform .9s cubic-bezier(.22,.68,.2,1);
 }
 .pl-sweep{
   position:absolute; top:0; bottom:0; width:26%;
@@ -608,3 +609,5 @@ body.is-touch .cursor{ display:none; }
 @media (prefers-reduced-motion: reduce){
   *{ animation-duration:.001ms !important; transition-duration:.001ms !important; }
 }
+/* 拖动检视时不允许选中文本；邮件仍可选中复制 */
+a.mail{ -webkit-user-select:text; user-select:text; }

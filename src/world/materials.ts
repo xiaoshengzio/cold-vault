@@ -36,10 +36,10 @@ export function createMaterials(): VaultMaterials {
 
   const wall = concreteMat(wallMaps, 0xffffff, 1.0, 0.3, 0.38);
   const wallDark = concreteMat(ceilMaps, 0xa8a39c, 1.0, 0.5, 0.3);
-  const floor = concreteMat(floorMaps, 0xffffff, 1.0, 0.14, 1.15) as THREE.MeshPhysicalMaterial;
+  const floor = concreteMat(floorMaps, 0xffffff, 1.0, 0.09, 1.15) as THREE.MeshPhysicalMaterial;
   floor.metalness = 0.0;
-  floor.clearcoat = 0.45;
-  floor.clearcoatRoughness = 0.26;
+  floor.clearcoat = 0.34;
+  floor.clearcoatRoughness = 0.34;
   const ceiling = concreteMat(ceilMaps, 0x8f8a84, 1.0, 0.5, 0.25);
 
   const steelRough = makeBrushRoughness(0.24, 0.5);

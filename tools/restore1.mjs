@@ -1,0 +1,12 @@
+import fs from 'node:fs';
+const p = 'src/main.ts';
+let s = fs.readFileSync(p, 'utf8');
+s = s.replace("// TEMP-NORECT scene.add(warmRim);", "scene.add(warmRim);");
+s = s.replace("// TEMP-NORECT scene.add(coolKick);", "scene.add(coolKick);");
+s = s.replace("// TEMP-NORECT scene.add(edgeRim);", "scene.add(edgeRim);");
+s = s.replace("// TEMP-NORECT scene.add(kissTop);", "scene.add(kissTop);");
+s = s.replace("new EffectComposer(renderer)", "new EffectComposer(renderer, { frameBufferType: THREE.HalfFloatType })");
+s = s.replace("// TEMP-NODOFPASS\n// composer.addPass(dofPass);", "composer.addPass(dofPass);");
+s = s.replace("// TEMP-NODOFPASS", "");
+fs.writeFileSync(p, s, 'utf8');
+console.log('rects', (s.match(/scene\.add(\(warmRim|coolKick|edgeRim|kissTop\)/g)||[]).length, 'halffloat', s.includes('HalfFloatType'), 'dofpass', s.includes('composer.addPass(dofPass);'));

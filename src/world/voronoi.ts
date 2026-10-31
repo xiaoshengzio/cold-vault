@@ -62,7 +62,11 @@ function clipPolyhedron(faces: PolyFaces, n: THREE.Vector3, d: number): PolyFace
 }
 
 /** 把一个凸多面体转成三角面几何（面数很少，无需索引），并保证法线朝外 */
-export function facesToGeometry(faces: PolyFaces, centre: THREE.Vector3): THREE.BufferGeometry {
+export function facesToGeometry(
+  faces: PolyFaces,
+  centre: THREE.Vector3,
+  cutFlags?: boolean[],
+): THREE.BufferGeometry {
   const pos: number[] = [];
   const nrm: number[] = [];
   const tri = new THREE.Triangle();
@@ -70,8 +74,11 @@ export function facesToGeometry(faces: PolyFaces, centre: THREE.Vector3): THREE.
   const e2 = new THREE.Vector3();
   const fn = new THREE.Vector3();
   const fc = new THREE.Vector3();
+  const cut: number[] = [];
 
-  for (const face of faces) {
+  for (let fi = 0; fi < faces.length; fi++) {
+    const face = faces[fi];
+    const isCut = cutFlags ? (cutFlags[fi] ? 1 : 0) : 0;
     if (face.length < 3) continue;
     for (let i = 1; i < face.length - 1; i++) {
       const a = face[0];
@@ -91,6 +98,7 @@ export function facesToGeometry(faces: PolyFaces, centre: THREE.Vector3): THREE.
       fn.crossVectors(e1, e2).normalize();
       pos.push(p0.x, p0.y, p0.z, p1.x, p1.y, p1.z, p2.x, p2.y, p2.z);
       nrm.push(fn.x, fn.y, fn.z, fn.x, fn.y, fn.z, fn.x, fn.y, fn.z);
+      cut.push(isCut, isCut, isCut);
     }
   }
 
@@ -98,6 +106,7 @@ export function facesToGeometry(faces: PolyFaces, centre: THREE.Vector3): THREE.
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   g.setAttribute('normal', new THREE.Float32BufferAttribute(nrm, 3));
   g.setAttribute('uv', new THREE.Float32BufferAttribute(new Float32Array((pos.length / 3) * 2), 2));
+  if (cutFlags) g.setAttribute('aCut', new THREE.Float32BufferAttribute(cut, 1));
   return g;
 }
 

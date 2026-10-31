@@ -1,0 +1,12 @@
+import { chromium } from 'playwright-core';
+const browser = await chromium.launch({ channel:'msedge', headless:true, args:['--ignore-gpu-blocklist','--force_high_performance_gpu'] });
+const page = await browser.newPage({ viewport:{width:1200,height:700}, deviceScaleFactor:1 });
+const logs=[];
+page.on('console', m=>logs.push('['+m.type()+'] '+m.text().slice(0,300)));
+page.on('pageerror', e=>logs.push('[pageerror] '+e.message));
+await page.goto('http://127.0.0.1:5273/', { waitUntil:'load', timeout:60000 });
+await page.waitForTimeout(9000);
+const st = await page.evaluate(() => ({ ready: window.__READY__||false, frames: window.__FRAMES__||0, hasScene: !!window.__SCENE__, pl: document.getElementById('pl-num')?.textContent, loading: document.body.className }));
+console.log(JSON.stringify(st));
+console.log(logs.slice(0,25).join('\n'));
+await browser.close();
