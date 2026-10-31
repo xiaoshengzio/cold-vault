@@ -102,42 +102,52 @@ export function buildArtefactEnvironment(renderer: THREE.WebGLRenderer): THREE.T
 }
 
 /**
- * A deliberately tiny, high-contrast studio for the crystal alone.
- * Large soft sources make glass read as opaque cream; a black room with a
- * handful of tight emitters is what makes facets sparkle.
+ * 晶体专用环境：**渐变棚**，不是一堆点光源。
+ * 抛光金属面只反射环境，若环境本身是黑的，每个面就都是同一个灰值 —— 多面体立刻塌成一张纸。
+ * 这里用一张等距柱状渐变图（顶部亮 / 地平线暗 / 底部纯黑）+ 两条细亮条：
+ * 每个晶面的明度由它的法线朝向决定，形体就"刻"出来了；两条亮条负责锐利高光。
  */
 export function buildCrystalEnvironment(renderer: THREE.WebGLRenderer): THREE.Texture {
-  const env = new THREE.Scene();
-  env.background = new THREE.Color(0x000000);
+  const W = 512;
+  const H = 256;
+  const canvas = document.createElement('canvas');
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext('2d')!;
 
-  const shell = new THREE.Mesh(
-    new THREE.BoxGeometry(10, 10, 10),
-    new THREE.MeshBasicMaterial({ color: 0x030405, side: THREE.BackSide }),
-  );
-  env.add(shell);
+  // 天顶 -> 地平线 -> 底部的垂直渐变
+  const grad = ctx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0.0, 'rgb(255, 246, 230)');
+  grad.addColorStop(0.16, 'rgb(196, 190, 182)');
+  grad.addColorStop(0.36, 'rgb(96, 96, 100)');
+  grad.addColorStop(0.5, 'rgb(26, 27, 30)');
+  grad.addColorStop(0.66, 'rgb(8, 8, 10)');
+  grad.addColorStop(1.0, 'rgb(0, 0, 0)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
 
-  const emitter = (w: number, h: number, color: number, intensity: number, pos: THREE.Vector3) => {
-    const tex = new THREE.DataTexture(new Uint8Array([255, 255, 255, 255]), 1, 1);
-    tex.needsUpdate = true;
-    const m = new THREE.Mesh(
-      new THREE.PlaneGeometry(w, h),
-      new THREE.MeshBasicMaterial({ color: new THREE.Color(color).multiplyScalar(intensity), map: tex }),
-    );
-    m.position.copy(pos);
-    m.lookAt(0, 0, 0);
-    env.add(m);
-  };
+  // 顶棚柔光箱：给朝上的锥面一个渐隐的亮块
+  const box = ctx.createLinearGradient(0, 0, 0, H * 0.2);
+  box.addColorStop(0, 'rgba(255,255,255,1)');
+  box.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = box;
+  ctx.fillRect(W * 0.22, 0, W * 0.36, H * 0.2);
 
-  // three tight specular sources so each facet catches a different one
-  emitter(1.1, 2.6, 0xfff0d2, 16, new THREE.Vector3(2.6, 3.1, 2.2));
-  emitter(0.9, 0.9, 0xffe2b4, 22, new THREE.Vector3(-2.2, 4.2, 1.4));
-  emitter(0.7, 2.2, 0x9dc2ff, 9, new THREE.Vector3(-3.1, -0.6, 2.0));
-  emitter(3.2, 0.35, 0xff7a2a, 7, new THREE.Vector3(0.0, -2.6, 3.0));
-  emitter(0.35, 3.4, 0xffffff, 12, new THREE.Vector3(-3.4, 0.4, -2.6));
+  // 两条竖向细亮条（一暖一冷），在棱面上拖出干净的高光线
+  ctx.fillStyle = 'rgba(255, 236, 208, 0.95)';
+  ctx.fillRect(W * 0.055, H * 0.12, W * 0.022, H * 0.44);
+  ctx.fillStyle = 'rgba(196, 224, 255, 0.85)';
+  ctx.fillRect(W * 0.71, H * 0.16, W * 0.016, H * 0.38);
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.mapping = THREE.EquirectangularReflectionMapping;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.needsUpdate = true;
 
   const pmrem = new THREE.PMREMGenerator(renderer);
   pmrem.compileEquirectangularShader();
-  const rt = pmrem.fromScene(env, 0.006, 0.1, 60);
+  const rt = pmrem.fromEquirectangular(tex);
   pmrem.dispose();
+  tex.dispose();
   return rt.texture;
 }

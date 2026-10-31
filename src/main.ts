@@ -98,7 +98,7 @@ dust.points.geometry.translate(0, 0.2, -15);
 scene.add(dust.points);
 
 /* --------------------------------------------------------------- artifact */
-const specimen = buildSpecimen(M, artefactEnv);
+const specimen = buildSpecimen(M, artefactEnv, crystalEnv);
 specimen.group.position.set(-0.62, 2.30, -4.30);
 specimen.group.scale.setScalar(0.78);
 specimen.group.rotation.y = 0.6;
@@ -107,12 +107,12 @@ scene.add(specimen.group);
 // area lights give polished brass long, crisp specular streaks
 RectAreaLightUniformsLib.init();
 
-const warmRim = new THREE.RectAreaLight(0xffd8ab, 4.6, 2.6, 1.0);
+const warmRim = new THREE.RectAreaLight(0xffd8ab, 2.1, 2.6, 1.0);
 warmRim.position.set(0.70, 4.15, -1.10);
 warmRim.lookAt(specimen.group.position);
 scene.add(warmRim);
 
-const coolKick = new THREE.RectAreaLight(0xa9b6c8, 1.05, 1.8, 2.4);
+const coolKick = new THREE.RectAreaLight(0xa9b6c8, 0.75, 1.8, 2.4);
 coolKick.position.set(-2.80, 2.30, -2.10);
 coolKick.lookAt(specimen.group.position);
 scene.add(coolKick);
@@ -123,7 +123,7 @@ const haloMat = new THREE.ShaderMaterial({
   depthWrite: false,
   blending: THREE.AdditiveBlending,
   toneMapped: false,
-  uniforms: { uColor: { value: new THREE.Color(0.105, 0.026, 0.020) } },
+  uniforms: { uColor: { value: new THREE.Color(0.055, 0.016, 0.013) } },
   vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
   fragmentShader: `
     varying vec2 vUv; uniform vec3 uColor;
@@ -134,11 +134,26 @@ const haloMat = new THREE.ShaderMaterial({
       gl_FragColor = vec4(uColor * a, a);
     }`,
 });
-const halo = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 3.8), haloMat);
-halo.position.set(-0.62, 2.42, -7.30);
+const halo = new THREE.Mesh(new THREE.PlaneGeometry(7.0, 6.4), haloMat);
+halo.position.set(-0.62, 2.30, -9.60);
 scene.add(halo);
 
-const kissTop = new THREE.RectAreaLight(0xfff2e0, 4.0, 0.9, 0.9);
+// click impact: one short camera shake (a ring overlay was tried and read as sci-fi noise)
+let burstAge = 99;
+
+const keySpot = new THREE.SpotLight(0xfff6ea, 8.0, 12.0, 0.46, 0.62, 1.4);
+keySpot.position.set(-2.60, 5.20, 1.60);
+keySpot.target.position.copy(specimen.group.position);
+scene.add(keySpot);
+scene.add(keySpot.target);
+
+// 冷边光：从背后左侧擦过，把晶体从黑底里"抠"出来
+const edgeRim = new THREE.RectAreaLight(0x9fc6ff, 7.4, 0.55, 3.6);
+edgeRim.position.set(-3.40, 3.10, -2.60);
+edgeRim.lookAt(specimen.group.position);
+scene.add(edgeRim);
+
+const kissTop = new THREE.RectAreaLight(0xfff2e0, 1.5, 0.9, 0.9);
 kissTop.position.set(-1.00, 4.45, -1.40);
 kissTop.lookAt(specimen.group.position);
 scene.add(kissTop);
@@ -152,13 +167,9 @@ const composer = new EffectComposer(renderer, { frameBufferType: THREE.HalfFloat
 composer.addPass(new RenderPass(scene, camera));
 
 const bloom = new BloomEffect({
+  luminanceThreshold: 1.18,
   intensity: 0.62,
-  luminanceThreshold: 1.15,
-  luminanceSmoothing: 0.4,
   mipmapBlur: true,
-  radius: 0.78,
-  levels: 5,          // 原 8 级 mip，集显上纯浪费
-  resolutionScale: 0.5, // 泛光缓冲减半，观感几乎不变
 });
 composer.addPass(new EffectPass(camera, bloom));
 
@@ -207,6 +218,7 @@ addEventListener('pointerdown', (e) => {
   const t = e.target;
   if (t instanceof Element && t.closest('a, button, [data-hover]')) return;
   specimen.burst(1);
+  burstAge = 0;
 });
 addEventListener('pointerleave', () => { /* keep last attractor */ });
 
@@ -373,7 +385,12 @@ function onResize() {
   composer.setSize(innerWidth, innerHeight);
 
   // 竖屏把标本收小，别压住标题
-  specimen.group.scale.setScalar(camera.aspect < 1 ? 0.62 : 0.78);
+  specimen.group.scale.setScalar(camera.aspect < 1 ? 0.70 : 0.88);
+  // 竖屏：展台在近处会变成一只占满下半屏的黑鼓，且压住文案 —— 直接收起，标本浮在虚空里
+  const portrait = camera.aspect < 1;
+  room.group?.traverse((o: THREE.Object3D) => {
+    if (o.name === 'plinth') o.visible = !portrait;
+  });
   // narrow viewports: keep the frame legible instead of cinematic blur
   const narrow = innerWidth < 900;
   dof.bokehScale = narrow ? 0.55 : 1.35;
@@ -451,6 +468,16 @@ const startLoop = () => renderer.setAnimationLoop(() => {
   warmRim.intensity = 3.35 + Math.sin(t * 1.7) * 0.30 + Math.sin(t * 4.3) * 0.12;
 
   rig.update(dt, t);
+
+  // impact: expanding ring + a short camera shake, both driven by one clock
+  burstAge += dt;
+  const shake = Math.max(0, 1 - burstAge / 0.62);
+  if (shake > 0) {
+    const k = shake * shake * 0.020;
+    camera.position.x += Math.sin(burstAge * 63.0) * k;
+    camera.position.y += Math.sin(burstAge * 48.0 + 1.7) * k;
+  }
+
   beams.update(t);
   beams.material.uniforms.uCam.value.copy(camera.position);
   dust.update(t, camera.position);
@@ -472,6 +499,7 @@ else warmComposer().then(startLoop).catch((e) => {
 initUI({ rig });
 
 (window as any).__THREE__ = THREE;
+(window as any).__RAPIER__ = (window as any).__RAPIER__;
 (window as any).__SCENE__ = {
   scene, camera, renderer, specimen, rig, beams, room, composer, dof, bloom, dofPass, caPass,
   setQualityMode, applyRes, applyFx,

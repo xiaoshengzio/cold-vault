@@ -574,6 +574,7 @@ body.is-touch .cursor{ display:none; }
 
 @media (max-width: 860px){
   body{ cursor:auto; }
+  .eyebrow{ flex-wrap:wrap; font-size:9.5px; letter-spacing:.13em; gap:8px; }
   .chrome-top{ font-size:9px; letter-spacing:.14em; gap:10px; }
   .brand{ gap:6px; white-space:nowrap; flex:none; }
   .brand-latin{ display:none; }

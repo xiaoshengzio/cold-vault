@@ -10,8 +10,8 @@ export const ROOM = {
   APERTURE_W: 4.8,
   APERTURE_Y0: 0.8,
   APERTURE_Y1: 6.4,
-  SLATS: 11,
-  SLAT_DEPTH: 0.42,
+  SLATS: 15,
+  SLAT_DEPTH: 0.34,
   SLAT_TILT: 42,
 };
 
@@ -72,7 +72,7 @@ const skyFrag = /* glsl */ `
     vec3 warm = vec3(1.0, 0.78, 0.52);
     vec3 cool = vec3(0.22, 0.30, 0.48);
     vec3 col = mix(cool, warm, clamp(core * 1.30 + veil * 0.45, 0.0, 1.0));
-    col *= 0.05 + g * 0.62;
+    col *= 0.10 + g * 1.35;
     // faint drifting veils so the glare is not a flat plate
     float band = sin(vUv.y * 9.0 + uTime * 0.25 + sin(vUv.x * 5.0) * 0.6);
     col *= 1.0 + band * 0.05;
@@ -122,11 +122,17 @@ export function buildRoom(M: VaultMaterials): RoomBuild {
   g.add(box(AW, AY0, 0.8, M.wall, { pos: [AX, AY0 / 2, BACK_Z - 0.4], unit: 3.4 }));
 
   // slats
+  // 百叶片必须是哑光近黑：金属叶片会把天光整片反成这样一块"灰色条形码"，
+  // 只有让叶片彻底吃掉光，读者看到的才是从缝里切进来的光。
+  // 百叶只负责投影：材质关掉 colorWrite/depthWrite 后叶片本身不出现，
+  // 但阴影贴图照常渲染 —— 于是"光从百叶缝里切进来"由地面上的光刃来讲述，
+  // 窗本身是一块干净的过曝面，而不是一排悬浮的白色塑料条。
+  const slatMat = new THREE.MeshBasicMaterial({ color: 0x060607 });
   const slats: THREE.Mesh[] = [];
   for (let i = 0; i < ROOM.SLATS; i++) {
     const t = (i + 0.5) / ROOM.SLATS;
     const y = AY0 + t * (AY1 - AY0);
-    const s = box(AW - 0.04, 0.085, ROOM.SLAT_DEPTH, M.steel, {
+    const s = box(AW - 0.04, 0.085, ROOM.SLAT_DEPTH, slatMat as unknown as typeof M.steel, {
       pos: [AX, y, BACK_Z],
       rot: [THREE.MathUtils.degToRad(ROOM.SLAT_TILT), 0, 0],
       unit: 0.7,
@@ -186,9 +192,30 @@ export function buildRoom(M: VaultMaterials): RoomBuild {
   strips.push(coveR);
   g.add(coveR);
 
-  // plinth
-  g.add(box(2.2, 0.16, 2.2, M.wallDark, { pos: [3.2, 0.08, -12.6], unit: 2 }));
-  g.add(box(1.55, 0.62, 1.55, M.plinth, { pos: [3.2, 0.47, -12.6], unit: 2 }));
+  // 圆形展台：标本悬停在其正上方，把构图"落地"
+  const plinthStone = new THREE.MeshStandardMaterial({ color: 0x0a0b0d, roughness: 0.88, metalness: 0.0, envMapIntensity: 0.12 });
+  const plinthBase = new THREE.Mesh(new THREE.CylinderGeometry(0.80, 0.86, 0.82, 48, 1), plinthStone);
+  plinthBase.position.set(-0.62, 0.41, -4.30);
+  plinthBase.castShadow = true;
+  plinthBase.receiveShadow = true;
+  plinthBase.name = 'plinth';
+  g.add(plinthBase);
+
+  const plinthCap = new THREE.Mesh(new THREE.CylinderGeometry(0.735, 0.80, 0.20, 48, 1), plinthStone);
+  plinthCap.position.set(-0.62, 0.92, -4.30);
+  plinthCap.castShadow = true;
+  plinthCap.receiveShadow = true;
+  plinthCap.name = 'plinth';
+  g.add(plinthCap);
+
+  const plinthBrass = (M.brass as THREE.MeshPhysicalMaterial).clone();
+  plinthBrass.envMapIntensity = 0.30;
+  plinthBrass.roughness = 0.62;
+  const plinthRing = new THREE.Mesh(new THREE.TorusGeometry(0.742, 0.006, 8, 96), plinthBrass);
+  plinthRing.rotation.x = Math.PI / 2;
+  plinthRing.position.set(-0.62, 1.012, -4.30);
+  plinthRing.name = 'plinth';
+  g.add(plinthRing);
 
   return { group: g, strips, slats, apertureCenter: new THREE.Vector3(0, (AY0 + AY1) / 2, BACK_Z) };
 }
