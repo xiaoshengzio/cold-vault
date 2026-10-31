@@ -3,3 +3,13 @@ dist/
 shots/
 *.local
 .DS_Store
+
+# 一次性调试脚本与临时产物
+tmp/
+tmp-profile/
+._scratch/
+_tmp_probe.txt
+tools/patch-*.mjs
+tools/patch-*.cjs
+tools/p_*.cjs
+tools/fix*.mjs

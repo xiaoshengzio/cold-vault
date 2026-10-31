@@ -46,7 +46,7 @@ const fragmentShader = /* glsl */ `
     // 高斯横向衰减：光柱的边界必须是"渐隐"而不是一条硬边，
     // 否则 15 条硬边薄片读作一堆激光线而不是从缝隙里漏下来的光。
     float across = exp(-pow((vUv.x - 0.5) * 4.4, 2.0));
-    float head = smoothstep(0.0, 0.22, vUv.y);
+    float head = smoothstep(0.0, 0.05, vUv.y);
     // shafts thin out with distance instead of running as glowing tubes
     float tail = exp(-vUv.y * 3.4);
     float n = noise(vec2(vUv.x * 3.0 + uTime * 0.03, vUv.y * 5.0 - uTime * 0.06));
@@ -61,7 +61,9 @@ const fragmentShader = /* glsl */ `
     a *= smoothstep(1.6, 6.5, d);
 
     if (!(a > 0.0)) discard;
-    gl_FragColor = vec4(uColor * uIntensity * a, a);
+    // 材质是 AdditiveBlending（SrcAlpha, One），alpha 会被再乘一次：
+    // 写 a 就等于把高斯平方，核心变细、边缘一刀切。颜色里不要再带 a。
+    gl_FragColor = vec4(uColor * uIntensity, a);
   }
 `;
 

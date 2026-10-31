@@ -196,10 +196,12 @@ export interface SpecimenPiece {
   captureT: number;
   from: THREE.Vector3;
   fromQ: THREE.Quaternion;
-  /** 团块内此片的目标偏移方向与半径（每个片各不同 → 堆出来的形状不规则） */
+  /** 团块内此片的目标偏移方向（每片不同 → 堆出来的形状不规则） */
   gatherDir: THREE.Vector3;
   gatherR: number;
-  /** 当前静止变换：开场是原始解理位，团块形成后被覆写成团块位 */
+  /** 团块内的目标位（相对晶体中心），磁吸阶段的目标点 */
+  clumpPos: THREE.Vector3;
+  /** 解理原位：永远不变，是"晶体形态"的权威坐标 */
   restPos: THREE.Vector3;
   restQuat: THREE.Quaternion;
   /** 已经吸定（冻结） */
@@ -253,7 +255,7 @@ export function buildSpecimen(M: any, env: THREE.Texture, stoneEnv: THREE.Textur
   quartzMat.color = new THREE.Color(0.024, 0.025, 0.031);
   quartzMat.emissive = new THREE.Color(0.004, 0.004, 0.005);
   quartzMat.ior = 1.58;
-  quartzMat.roughness = 0.285;
+  quartzMat.roughness = 0.290;
   quartzMat.metalness = 0.0;
   quartzMat.iridescence = 0.34;
   quartzMat.iridescenceIOR = 1.42;
@@ -270,7 +272,7 @@ export function buildSpecimen(M: any, env: THREE.Texture, stoneEnv: THREE.Textur
   quartzMat.polygonOffsetUnits = 1.4;
 
   // 菲涅耳棱光：掠射角把棱提亮一点点，读作"透明晶体的边"，而不是靠额外的壳层几何
-  const fresUniform = { value: new THREE.Color(0.15, 0.19, 0.27) };
+  const fresUniform = { value: new THREE.Color(0.21, 0.26, 0.37) };
   const quartzBaseCompile = quartzMat.onBeforeCompile;
   quartzMat.onBeforeCompile = (shader, renderer) => {
     quartzBaseCompile?.call(quartzMat, shader, renderer);
@@ -290,6 +292,13 @@ export function buildSpecimen(M: any, env: THREE.Texture, stoneEnv: THREE.Textur
       '#include <roughnessmap_fragment>',
       `#include <roughnessmap_fragment>
       roughnessFactor = mix(roughnessFactor, 0.72, clamp(vCut, 0.0, 1.0));\n      float qn = cvNoise(vQPos * 26.0) * 0.55 + cvNoise(vQPos * 8.5) * 0.45;\n      roughnessFactor = clamp(roughnessFactor * (0.86 + qn * 0.42), 0.05, 1.0);`,
+    );
+    // 切口的镜面项必须一起压掉：只压 diffuse 的话，IBL 恢复后掠射角会接近全反射，
+    // 解理缝仍然会烧成一条白线。
+    shader.fragmentShader = shader.fragmentShader.replace(
+      '#include <lights_physical_fragment>',
+      `#include <lights_physical_fragment>
+      material.specularColor *= mix(1.0, 0.05, clamp(vCut, 0.0, 1.0));`,
     );
     shader.fragmentShader = shader.fragmentShader.replace(
       '#include <opaque_fragment>',
@@ -338,13 +347,19 @@ export function buildSpecimen(M: any, env: THREE.Texture, stoneEnv: THREE.Textur
   const CHUNKS = 88;
 
   // 底面多面体：按 PROFILE 叠一圈六边形环，侧面连成四边形
-  const ringY = [Y_BOT, -1.42, -1.26, -1.06, -0.28, 0.52, 0.88, 1.22, Y_TOP];
+  const ringY = [Y_BOT, -1.42, -1.26, -1.06, -0.66, -0.28, 0.12, 0.52, 0.88, 1.22, Y_TOP];
+  // 沿高度扭转：每圈六边形相对上一圈偏转几度，侧面于是被拧成"非平面四边形"。
+  // 三角化之后每个小面朝向都不同 → 晶面上出现连续的高光带，而不是一整片同一个灰。
+  // 这是"多面体读作平板"最有效的解法：不是调材质，是让面本身不平。
+  const TWIST = 0.55;
   const ringPts = ringY.map((y) => {
     const R = Math.max(0.006, radiusScaled(y));
+    const tw = TWIST * ((y - Y_BOT) / (Y_TOP - Y_BOT));
     const pts: THREE.Vector3[] = [];
     for (let k = 0; k < 6; k++) {
-      const th = Math.PI / 6 + (k / 6) * Math.PI * 2;
-      const r = hexRadius(R, th);
+      const local = Math.PI / 6 + (k / 6) * Math.PI * 2;
+      const r = hexRadius(R, local);
+      const th = local + tw;
       pts.push(new THREE.Vector3(Math.cos(th) * r, y, Math.sin(th) * r));
     }
     return pts;
@@ -434,13 +449,13 @@ export function buildSpecimen(M: any, env: THREE.Texture, stoneEnv: THREE.Textur
     // 留一道发丝缝：缝隙里露出的是相邻胞的"切口面"，已在材质里压成近黑，
     // 于是解理线读作细暗缝，而不是 88 个网格共边 AA 产生的白色点状描边。
     geo.scale(0.9994, 0.9994, 0.9994);
-    // 每一块都绕自身随机转 ±1°：88 个胞严丝合缝共面时，六个大平面会读成
-    // 「一整块抛光板」；轻微错开让每个解理面各自朝光，表面才碎成许多小切面。
-    const jitter = new THREE.Quaternion().setFromAxisAngle(
-      new THREE.Vector3(rand() - 0.5, rand() - 0.5, rand() - 0.5).normalize(),
-      (rand() - 0.5) * 0.034,
-    );
-    geo.applyQuaternion(jitter);
+    // 不旋转几何：旋转会让相邻解理面互相穿插，静止态出现"裂缝里嵌着别人的面"。
+    // 改成沿胞体朝外的方向推离 0.6–2.2mm，只产生发丝缝，永远不会互相穿入。
+    const outward = home.clone();
+    outward.y *= 0.25;
+    if (outward.lengthSq() < 1e-8) outward.set(0, 1, 0);
+    outward.normalize().multiplyScalar(0.0006 + rand() * 0.0016);
+    geo.translate(outward.x, outward.y, outward.z);
     if (geo.attributes.position.count < 30) continue;
 
       // 全片共用一份材质：逐块随机色调会让它读成"一堆石块"，而不是同一块晶体崩开
@@ -484,13 +499,15 @@ export function buildSpecimen(M: any, env: THREE.Texture, stoneEnv: THREE.Textur
       const gDir = new THREE.Vector3(rand() * 2 - 1, rand() * 2 - 1, rand() * 2 - 1);
       if (gDir.lengthSq() < 1e-4) gDir.set(0, 1, 0);
       gDir.normalize();
+      // 目标半径按体积均匀分布：88 片紧堆半径 ≈ 0.745，任何更小的目标都物理不可达
+      const gR = 0.96 * Math.cbrt(rand());
       pieces.push({
         mesh, body, collider, home, dir, wave, mass,
         snapped: true, captured: false, captureT: 0,
         from: new THREE.Vector3(), fromQ: new THREE.Quaternion(),
         gatherDir: gDir,
-        // 目标半径按体积均匀分布：88 片紧堆半径 ≈ 0.745，任何更小的目标都物理不可达
-        gatherR: 0.78 * Math.cbrt(rand()),
+        gatherR: gR,
+        clumpPos: gDir.clone().multiplyScalar(gR),
         locked: false,
         contacts: 0,
         quietT: 0,
@@ -569,6 +586,8 @@ let phase: Phase = 'rest';
 let phaseT = 0;
 let settleT = 0;
 let isClump = false;
+/** 本次磁吸的终点：true = 吸成悬浮团块，false = 吸回解理原位（晶体形态） */
+let gatherToClump = true;
 let snapFlash = 0;
 let accumulate = 0;
 let fieldOut = 0;
@@ -632,10 +651,12 @@ const syncPiece = (pc: SpecimenPiece) => {
   pc.mesh.quaternion.set(rot.x, rot.y, rot.z, rot.w);
 };
 
-/** 收尾：记录静止变换、按实测包围半径张开环、物理停摆 */
+/**
+ * 收尾：clump = true → 磁铁把碎片吸成一个不规则悬浮团（永久保持，不拼回原样）；
+ * clump = false → 吸回解理原位，整块晶体重新成立。两种情况都按实测包围半径张开黄铜环。
+ */
 const freezeClump = (clump = true) => {
   if (!clump) {
-    // 磁吸归位：所有碎片已经回到各自的 home，恢复静止态（整块晶体重新成立）
     for (const pc of pieces) {
       pc.body.setBodyType(RAPIER.RigidBodyType.Fixed, true);
       pc.body.setTranslation({ x: pc.restPos.x, y: pc.restPos.y, z: pc.restPos.z }, true);
@@ -658,12 +679,10 @@ const freezeClump = (clump = true) => {
     snapFlash = 0;
     return;
   }
+
   let boundR = 0;
   for (const pc of pieces) {
     const tr = pc.body.translation();
-    const rot = pc.body.rotation();
-    pc.restPos.set(tr.x, tr.y, tr.z);
-    pc.restQuat.set(rot.x, rot.y, rot.z, rot.w);
     boundR = Math.max(boundR, Math.sqrt(tr.x * tr.x + tr.y * tr.y + tr.z * tr.z));
     if (!pc.locked) {
       pc.body.setBodyType(RAPIER.RigidBodyType.Fixed, true);
@@ -708,8 +727,9 @@ const stepPhysics = (h: number) => {
       if (pc.locked) continue;
       const body = pc.body;
       const tr = body.translation();
-      // 磁吸归位：每片被吸回它自己的 home，碎片最后拼回整块晶体
-      toP.set(pc.restPos.x - tr.x, pc.restPos.y - tr.y, pc.restPos.z - tr.z);
+      // 磁吸终点：团块槽位（首次点击）或解理原位（再次点击拼回晶体）
+      const tgt = gatherToClump ? pc.clumpPos : pc.restPos;
+      toP.set(tgt.x - tr.x, tgt.y - tr.y, tgt.z - tr.z);
       const gap = toP.length();
       if (gap > 1e-4) {
         toP.divideScalar(gap);
@@ -728,6 +748,12 @@ const stepPhysics = (h: number) => {
           iz *= sc;
         }
         body.applyImpulse({ x: ix, y: iy, z: iz }, true);
+        if (gatherToClump) {
+          // 团块：不强行摆姿态，只把翻滚刹住，让每片保持"被磁力随手吸住"的角度
+          const w0 = body.angvel();
+          const kw = Math.exp(-5.5 * h);
+          body.setAngvel({ x: w0.x * kw, y: w0.y * kw, z: w0.z * kw }, true);
+        } else {
         // 姿态也吸回原位：四元数误差 → 目标角速度，靠近时才开始拽正，远处不干涉翻滚
         const rot = body.rotation();
         tmpQ.set(rot.x, rot.y, rot.z, rot.w);
@@ -740,6 +766,7 @@ const stepPhysics = (h: number) => {
           const wMax = Math.min(9, ang * 5.5) * near;
           const k = wMax / sHalf;
           body.setAngvel({ x: tmpQ2.x * k, y: tmpQ2.y * k, z: tmpQ2.z * k }, true);
+        }
         }
       }
     }
@@ -763,13 +790,16 @@ const stepPhysics = (h: number) => {
       const v = pc.body.linvel();
       const sp = Math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
       const tr = pc.body.translation();
-      const dh = Math.hypot(tr.x - pc.restPos.x, tr.y - pc.restPos.y, tr.z - pc.restPos.z);
-      if (sp < QUIET_V && dh < 0.05) pc.quietT += h;
+      const tgt2 = gatherToClump ? pc.clumpPos : pc.restPos;
+      const dh = Math.hypot(tr.x - tgt2.x, tr.y - tgt2.y, tr.z - tgt2.z);
+      if (sp < QUIET_V && dh < (gatherToClump ? 0.11 : 0.05)) pc.quietT += h;
       else pc.quietT = Math.max(0, pc.quietT - 2 * h);
       if (pc.quietT > QUIET_T) {
-        // 精确落到 home：差 3cm 以内直接吸附，读作"磁铁啪地一下吸住"
-        pc.body.setTranslation({ x: pc.restPos.x, y: pc.restPos.y, z: pc.restPos.z }, true);
-        pc.body.setRotation({ x: pc.restQuat.x, y: pc.restQuat.y, z: pc.restQuat.z, w: pc.restQuat.w }, true);
+        if (!gatherToClump) {
+          // 精确落到解理原位：差几厘米以内直接吸附，读作"磁铁啪地一下吸住"
+          pc.body.setTranslation({ x: pc.restPos.x, y: pc.restPos.y, z: pc.restPos.z }, true);
+          pc.body.setRotation({ x: pc.restQuat.x, y: pc.restQuat.y, z: pc.restQuat.z, w: pc.restQuat.w }, true);
+        }
         pc.body.setLinvel({ x: 0, y: 0, z: 0 }, true);
         pc.body.setAngvel({ x: 0, y: 0, z: 0 }, true);
         pc.body.setBodyType(RAPIER.RigidBodyType.Fixed, true);
@@ -779,7 +809,7 @@ const stepPhysics = (h: number) => {
         snapFlash = Math.min(1, snapFlash + 0.06);
       }
     }
-    if (lockedCount === pieces.length) freezeClump(false);
+    if (lockedCount === pieces.length) freezeClump(gatherToClump);
   }
   for (const pc of pieces) syncPiece(pc);
 };
@@ -808,6 +838,10 @@ return {
   burst(strength = 1) {
     // 从当前静止位重新起步：刚体在 rest 期是 Fixed，必须转回 Dynamic 并补回质量
     const fromRest = phase === 'rest';
+    const burstFromClump = isClump;
+    // 交替：晶体 → 团块，团块 → 晶体
+    gatherToClump = !isClump;
+    isClump = false;
     for (const pc of pieces) {
       const body = pc.body;
       body.setBodyType(RAPIER.RigidBodyType.Dynamic, true);
@@ -821,14 +855,16 @@ return {
         const sy0 = pc.mesh.position.y;
         const sz0 = pc.mesh.position.z;
         body.setTranslation({ x: sx0, y: sy0, z: sz0 }, true);
-        body.setRotation({ x: pc.restQuat.x, y: pc.restQuat.y, z: pc.restQuat.z, w: pc.restQuat.w }, true);
+        if (!burstFromClump) {
+          body.setRotation({ x: pc.restQuat.x, y: pc.restQuat.y, z: pc.restQuat.z, w: pc.restQuat.w }, true);
+        }
       }
       body.setLinvel({ x: 0, y: 0, z: 0 }, true);
       body.setAngvel({ x: 0, y: 0, z: 0 }, true);
       pc.collider.setCollisionGroups(GROUPS_TOUCHING);
       body.enableCcd(true);
       // 沿"离心方向"爆开：团块形成后，各片朝外推的方向天然就是它所在位置的法向
-      tmpV.copy(fromRest ? pc.restPos : pc.mesh.position).sub(centre);
+      tmpV.copy(pc.mesh.position).sub(centre);
       tmpV.y *= 0.35;
       if (tmpV.lengthSq() < 1e-5) tmpV.copy(pc.dir);
       tmpV.normalize();
@@ -869,6 +905,12 @@ return {
     if (phase === 'rest') {
       const swell = hoverAmt * 0.030;
       for (const pc of pieces) {
+        if (isClump) {
+          // 团块：保持在物理冻结住的位置，只做极轻的整体呼吸
+          const ct = pc.body.translation();
+          pc.mesh.position.set(ct.x, ct.y + Math.sin(t * 0.5) * 0.004, ct.z);
+          continue;
+        }
         const breathe = 0.0013 + Math.sin(t * 0.85 + pc.wave * 24) * 0.001;
         const push = breathe + swell;
         pc.mesh.position.set(
@@ -879,7 +921,7 @@ return {
         pc.mesh.quaternion.copy(pc.restQuat);
         pc.mesh.position.y += Math.sin(t * 0.62 + pc.restPos.y * 3.1) * 0.0012;
       }
-      if (pointer) {
+      if (pointer && !isClump) {
         for (const pc of pieces) {
           toP.set(pointerLocal.x - pc.restPos.x, pointerLocal.y - pc.restPos.y, pointerLocal.z - pc.restPos.z);
           const d = toP.length();
@@ -935,7 +977,7 @@ return {
       r.holder.position.y = r.baseY;
     }
     /* ---- 兜底：极端情况下最多吸 3.2 秒 ---- */
-    if (phase === 'gather' && phaseT > 4.6) freezeClump(false);
+    if (phase === 'gather' && phaseT > 4.6) freezeClump(gatherToClump);
 
     snapFlash = Math.max(0, snapFlash - dt * 3.0);
     core.scale.setScalar(1 + Math.sin(t * 2.4) * 0.1 + Math.min(1.2, snapFlash * 0.8));

@@ -10,7 +10,7 @@ export const ROOM = {
   APERTURE_W: 4.8,
   APERTURE_Y0: 0.8,
   APERTURE_Y1: 6.4,
-  SLATS: 15,
+  SLATS: 22,
   SLAT_DEPTH: 0.34,
   SLAT_TILT: 42,
 };
@@ -62,17 +62,18 @@ const skyFrag = /* glsl */ `
   uniform float uTime;
   void main(){
     // 天空面比窗口大很多，衰减必须按「窗口尺度」算，否则整块窗是一片死平的灰白
-    vec2 p = vUv - vec2(0.52, 0.58);
+    vec2 p = vUv - vec2(0.62, 0.78);
     float r = length(p * vec2(1.15, 0.90)) * 7.0;
     float core = exp(-r * r * 0.75);
-    float horizon = exp(-pow((vUv.y - 0.30) / 0.10, 2.0));
+    float horizon = exp(-pow((vUv.y - 0.40) / 0.16, 2.0));
     float veil = smoothstep(1.25, 0.0, r);
     float g = core + horizon * 0.24 + veil * 0.18;
 
     vec3 warm = vec3(1.0, 0.93, 0.83);
     vec3 cool = vec3(0.22, 0.30, 0.48);
     vec3 col = mix(cool, warm, clamp(core * 1.30 + veil * 0.45, 0.0, 1.0));
-    col *= 0.052 + g * 0.92;
+    // 峰值必须过 bloom 阈值（1.18），否则窗口没有任何真实溢光，只靠自己画的灰渐变
+    col *= 0.045 + g * 1.34;
   // 暖色偏移：纯白缝隙在暗场里像荧光灯管，带琥珀才像"天光漏进来"
   col *= vec3(1.0, 0.95, 0.90);
     // faint drifting veils so the glare is not a flat plate
@@ -139,13 +140,13 @@ export function buildRoom(M: VaultMaterials): RoomBuild {
     side: THREE.DoubleSide,
   });
   const slats: THREE.Mesh[] = [];
-  const SLAT_RECESS = 0.34;
+  const SLAT_RECESS = 0.47;
   for (let i = 0; i < ROOM.SLATS; i++) {
     const t = (i + 0.5) / ROOM.SLATS;
     const y = AY0 + t * (AY1 - AY0);
     // 加厚 + 后退进墙体：叶片从"贴墙的白条"变成"洞里的一层深色鳞片"，
     // 天光只在缝里露出一道细线，进深由洞口内衬的阴影给出。
-    const s = box(AW - 0.03, 0.215, 0.24, slatMat as unknown as typeof M.steel, {
+    const s = box(AW - 0.02, 0.34, 0.30, slatMat as unknown as typeof M.steel, {
       pos: [AX, y, BACK_Z - SLAT_RECESS],
       rot: [THREE.MathUtils.degToRad(ROOM.SLAT_TILT), 0, 0],
       unit: 0.7,
@@ -227,16 +228,16 @@ export function buildRoom(M: VaultMaterials): RoomBuild {
   g.add(coveR);
 
   // 圆形展台：标本悬停在其正上方，把构图"落地"
-  const plinthStone = new THREE.MeshStandardMaterial({ color: 0x0d0e12, roughness: 0.58, metalness: 0.0, envMapIntensity: 0.45 });
-  const plinthBase = new THREE.Mesh(new THREE.CylinderGeometry(0.80, 0.86, 0.82, 48, 1), plinthStone);
-  plinthBase.position.set(-0.62, 0.41, -4.30);
+  const plinthStone = new THREE.MeshStandardMaterial({ color: 0x020203, roughness: 0.90, metalness: 0.0, envMapIntensity: 0.05 });
+  const plinthBase = new THREE.Mesh(new THREE.CylinderGeometry(0.62, 0.70, 0.82, 64, 1), plinthStone);
+  plinthBase.position.set(-0.34, 0.41, -4.10);
   plinthBase.castShadow = true;
   plinthBase.receiveShadow = true;
   plinthBase.name = 'plinth';
   g.add(plinthBase);
 
-  const plinthCap = new THREE.Mesh(new THREE.CylinderGeometry(0.735, 0.80, 0.20, 48, 1), plinthStone);
-  plinthCap.position.set(-0.62, 0.92, -4.30);
+  const plinthCap = new THREE.Mesh(new THREE.CylinderGeometry(0.575, 0.62, 0.20, 64, 1), plinthStone);
+  plinthCap.position.set(-0.34, 0.92, -4.10);
   plinthCap.castShadow = true;
   plinthCap.receiveShadow = true;
   plinthCap.name = 'plinth';
@@ -245,9 +246,9 @@ export function buildRoom(M: VaultMaterials): RoomBuild {
   const plinthBrass = (M.brass as THREE.MeshPhysicalMaterial).clone();
   plinthBrass.envMapIntensity = 0.30;
   plinthBrass.roughness = 0.62;
-  const plinthRing = new THREE.Mesh(new THREE.TorusGeometry(0.742, 0.006, 8, 96), plinthBrass);
+  const plinthRing = new THREE.Mesh(new THREE.TorusGeometry(0.585, 0.005, 8, 128), plinthBrass);
   plinthRing.rotation.x = Math.PI / 2;
-  plinthRing.position.set(-0.62, 1.012, -4.30);
+  plinthRing.position.set(-0.34, 1.012, -4.10);
   plinthRing.name = 'plinth';
   g.add(plinthRing);
 

@@ -29,6 +29,9 @@ renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFShadowMap;
 renderer.toneMapping = THREE.NoToneMapping;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
+// 生产环境关掉 checkShaderErrors：它会为每个 program 同步等 getProgramInfoLog，
+// 实测冷启动累计 13–16s 就耗在这一步。开发环境保留，便于发现着色器错误。
+renderer.debug.checkShaderErrors = !!(import.meta as any).env?.DEV;
 stage('初始化渲染器', 8);
 const scene = new THREE.Scene();
 
@@ -75,7 +78,7 @@ sun.shadow.radius = 2.5;
 scene.add(sun, sun.target);
 
 scene.add(new THREE.HemisphereLight(0x3b4f6d, 0x0d0c0b, 0.50));
-scene.fog = new THREE.FogExp2(0x0c1118, 0.052);
+scene.fog = new THREE.FogExp2(0x080b11, 0.043);
 
 /* ------------------------------------------------------------------ beams */
 const beams = buildBeams({
@@ -89,7 +92,7 @@ const beams = buildBeams({
   slatTiltDeg: ROOM.SLAT_TILT,
   sunDir,
   color: new THREE.Color(1.0, 0.80, 0.56),
-  intensity: 0.30,
+  intensity: 0.26,
   length: 26,
 });
 scene.add(beams.group);
@@ -165,24 +168,34 @@ function bakeSpecimenReflection() {
     scene.add(m);
     panels.push(m);
   };
-  panel(3.4, 4.6, [3.10, 3.10, -1.90], [2.10, 1.72, 1.30]);   // 右前暖柔光箱
+  panel(3.4, 4.6, [3.10, 3.10, -1.90], [0.45, 0.38, 0.29]);   // 右前暖柔光箱
   panel(0.70, 5.20, [-3.10, 2.70, -4.60], [0.40, 0.54, 0.84]); // 左侧冷光条
   panel(2.60, 2.60, [-0.10, 6.30, -4.10], [1.85, 1.80, 1.66]); // 顶部柔光箱
   // 大面柔光：黑曜石面上要是只有两点高光，其余全黑就成了黑板。
   // 这块低亮度大板负责把中间调填起来，让每个面的朝向都能读出不同的灰。
   panel(5.20, 6.00, [-3.90, 2.60, -6.60], [0.42, 0.46, 0.56]);
+  // 左右两条竖直灯管：让竖直晶面各自对到不同的色温，面与面之间才拉开明暗差
+  panel(1.20, 5.60, [4.40, 2.60, -4.60], [0.66, 0.52, 0.36]);
+  panel(1.00, 5.60, [-4.20, 2.50, -4.20], [0.36, 0.48, 0.76]);
   cam.update(renderer, scene);
   for (const m of panels) { scene.remove(m); m.geometry.dispose(); (m.material as THREE.Material).dispose(); }
   specimen.group.visible = wasVisible;
+  // CubeTexture 直接赋给 envMap 是无效的：r186 的 getIBLIrradiance / getIBLRadiance
+  // 对非 CUBE_UV 映射直接 return vec3(0.0)，等于所有 IBL 项乘 0。
+  // 必须过 PMREM 拿到 CubeUV 贴图。
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  pmrem.compileCubemapShader();
+  const envRT = pmrem.fromCubemap(rt.texture);
+  pmrem.dispose();
   const mat = (specimen.pieces[0]?.mesh.material as THREE.MeshPhysicalMaterial) ?? null;
   if (mat) {
-    mat.envMap = rt.texture;
-    mat.envMapIntensity = 2.10;
-    mat.needsUpdate = true;
+    mat.envMap = envRT.texture;
+    mat.envMapIntensity = 1.50;
   }
+  (specimen as any).__bakedEnv = envRT.texture;
 }
 specimen.group.position.set(-0.34, 2.47, -4.10);
-specimen.group.scale.setScalar(0.92);
+specimen.group.scale.setScalar(0.98);
 specimen.group.rotation.y = 0.6;
 scene.add(specimen.group);
 
@@ -223,15 +236,17 @@ halo.position.set(-0.34, 2.47, -9.20);
 scene.add(halo);
 
 // 背后冷光：只描标本的左缘，让黑色主体从黑底里"立"起来
+// TEMP-LIGHTBUDGET：量"灯数 → 着色器编译成本"用
+const LIGHT_BUDGET = Number(new URLSearchParams(window.location.search).get('lights') ?? 6);
 const coldRim = new THREE.SpotLight(0x93b6ff, 22.0, 9.0, 0.34, 0.9, 1.6);
 coldRim.position.set(-2.95, 3.75, -6.65);
 coldRim.target.position.copy(specimen.group.position);
-scene.add(coldRim, coldRim.target);
+if (LIGHT_BUDGET >= 6) scene.add(coldRim, coldRim.target);
 
 // click impact: one short camera shake (a ring overlay was tried and read as sci-fi noise)
 let burstAge = 99;
 
-const keySpot = new THREE.SpotLight(0xfff6ea, 8.0, 12.0, 0.46, 0.62, 1.4);
+const keySpot = new THREE.SpotLight(0xfff6ea, 6.4, 12.0, 0.42, 0.66, 1.4);
 keySpot.position.set(-2.60, 5.20, 1.60);
 keySpot.target.position.copy(specimen.group.position);
 scene.add(keySpot);
@@ -241,7 +256,7 @@ scene.add(keySpot.target);
 const warmEdge = new THREE.SpotLight(0xffb478, 16.0, 12.0, 0.20, 0.92, 1.5);
 warmEdge.position.set(3.25, 2.95, -7.10);
 warmEdge.target.position.copy(specimen.group.position);
-scene.add(warmEdge, warmEdge.target);
+if (LIGHT_BUDGET >= 5) scene.add(warmEdge, warmEdge.target);
 
 // 冷边光：从背后左侧擦过，把晶体从黑底里"抠"出来
 const edgeRim = new THREE.RectAreaLight(0x9fc6ff, 7.4, 0.55, 3.6);
@@ -252,20 +267,22 @@ edgeRim.lookAt(specimen.group.position);
 const kissTop = new THREE.SpotLight(0xfff2e0, 14.0, 9.0, 0.5, 0.92, 1.4);
 kissTop.position.set(-1.00, 4.45, -1.40);
 kissTop.target.position.copy(specimen.group.position);
-scene.add(kissTop, kissTop.target);
+if (LIGHT_BUDGET >= 4) scene.add(kissTop, kissTop.target);
 
 /* -------------------------------------------------------------------- post */
 // 全屏 pass 越少越省。bloom 与 DOF 都是卷积效果，本来就不会被合进同一个 shader，
 // 因此拆成独立 pass 几乎不增加开销，却换来「可以单独关掉景深而不降分辨率」。
 // 半浮点缓冲区：bloom 阈值要靠 1.0 以上的 HDR 值，8bit 会把高光压平。
 // 抗锯齿用 SMAA 而不是 4x MSAA：实测在这类集显上 MSAA 的带宽开销远大于一个 SMAA pass。
-const composer = new EffectComposer(renderer);
+// frameBufferType 必须是 HalfFloat：RGBA8 会把 >1.0 截断，BloomEffect 的
+// luminanceThreshold 1.18 就永远达不到，泛光等于失效。
+const composer = new EffectComposer(renderer, { frameBufferType: THREE.HalfFloatType });
 stage('预压缩缓冲', 69);
 composer.addPass(new RenderPass(scene, camera));
 
 const bloom = new BloomEffect({
   luminanceThreshold: 1.18,
-  intensity: 0.62,
+  intensity: 0.20,
   mipmapBlur: true,
 });
 composer.addPass(new EffectPass(camera, bloom));
@@ -555,7 +572,7 @@ function onResize() {
   composer.setSize(innerWidth, innerHeight);
 
   // 竖屏把标本收小，别压住标题
-  specimen.group.scale.setScalar(camera.aspect < 1 ? 0.86 : 0.88);
+  specimen.group.scale.setScalar(camera.aspect < 1 ? 0.86 : 0.94);
   // 竖屏：展台在近处会变成一只占满下半屏的黑鼓，且压住文案 —— 直接收起，标本浮在虚空里
   const portrait = camera.aspect < 1;
   room.group?.traverse((o: THREE.Object3D) => {
@@ -564,7 +581,7 @@ function onResize() {
   // narrow viewports: keep the frame legible instead of cinematic blur
   const narrow = innerWidth < 900;
   dof.bokehScale = narrow ? 0.55 : 1.35;
-  bloom.intensity = narrow ? 0.42 : 0.62;
+  bloom.intensity = narrow ? 0.11 : 0.15;
 }
 addEventListener('resize', onResize);
 onResize();
@@ -578,9 +595,6 @@ let frames = 0;
 try {
   specimen.pieces.forEach((pc) => { pc.mesh.visible = true; });
   specimen.solid.visible = false;
-  renderer.compile(scene, camera);
-} catch (e) {
-  console.warn('[cold-vault] precompile failed', e);
 } finally {
   // 静置画碎片（解理面常显），整块只作退化备份
   specimen.pieces.forEach((pc) => { pc.mesh.visible = true; });
@@ -598,6 +612,18 @@ let shadowTick = 0;
 // 小尺寸跑完之后，主分辨率首帧只剩几毫秒。
 const warmComposer = async () => {
   stage('编译冷光着色器', 78);
+  // 绑一个独立的小 RT 再 compileAsync：这样 cacheKey 落在 srgb-linear（composer 用的色彩空间），
+  // 不会额外编出一整套 srgb（画布）死变体；compileAsync 让驱动并行链接，主线程不被串行拖死。
+  const warmRT = new THREE.WebGLRenderTarget(240, 150, { type: THREE.HalfFloatType });
+  renderer.setRenderTarget(warmRT);
+  try {
+    await renderer.compileAsync(scene, camera);
+  } catch (e) {
+    console.warn('[cold-vault] compileAsync failed', e);
+  }
+  renderer.render(scene, camera);
+  renderer.setRenderTarget(null);
+  warmRT.dispose();
   // 极小尺寸先跑一遍：着色器变体与渲染目标的创建成本在这里付掉，
   // 否则主分辨率首帧会被驱动拖到数秒并阻塞主线程（用户看到的是"卡死"）。
   composer.setSize(240, 150);
@@ -632,7 +658,7 @@ const startLoop = () => renderer.setAnimationLoop(() => {
     }
   }
   const sway = Math.hypot(drag.velY, drag.velX) > 0.02 || drag.down ? 0.16 : 1;
-  specimen.group.rotation.y = 0.6 + Math.sin(t * 0.11) * 0.34 * sway + drag.rotY;
+  specimen.group.rotation.y = 0.92 + Math.sin(t * 0.11) * 0.30 * sway + drag.rotY;
   specimen.group.rotation.x = drag.rotX;
   specimen.rings.forEach((r) => {
     r.holder.rotateOnAxis(r.axis, dt * r.speed);
@@ -685,9 +711,6 @@ const startLoop = () => renderer.setAnimationLoop(() => {
   sampleQuality(dt * 1000);
   frames++;
   if (frames === 3) (window as any).__READY__ = true;
-  // 反射烘焙必须放在画面跑起来之后：它要同步渲染 6 个立方体面，
-  // 放在启动路径上会把首帧的合成挤掉（低端机会直接卡在白屏/加载页）。
-  if (frames === 6) bakeOnce();
 });
 
 let reflectionBaked = false;
@@ -696,6 +719,8 @@ const bakeOnce = () => {
   reflectionBaked = true;
   try { bakeSpecimenReflection(); } catch (e) { console.warn('[cold-vault] reflection bake failed', e); }
 };
+// 在首帧之前烘：材质从第一次编译起就拿的是 CubeUV 贴图，不会在运行中再重编一次。
+bakeOnce();
 if (NO_POST) startLoop();
 else warmComposer().then(startLoop).catch((e) => {
   console.warn('[cold-vault] warmup failed', e);

@@ -1,4 +1,5 @@
+
 from PIL import Image
-im = Image.open(r"C:\工作区\Projects\个人站·冷库\shots\222-bigger.png")
-im.crop((1040, 170, 1380, 660)).resize((680, 980), Image.LANCZOS).save(r"C:\工作区\Projects\个人站·冷库\shots\223-crop.png")
-print("ok")
+im = Image.open('shots/p4.png').convert('RGB')
+im.crop((1060,90,1520,600)).resize((460*2,510*2)).save('shots/p4-win2x.png')
+im.crop((500,120,1000,820)).save('shots/p4-cry.png')

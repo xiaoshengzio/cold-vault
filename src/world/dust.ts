@@ -47,7 +47,7 @@ export function buildDust(params: {
       uniform float uSize;
       uniform float uPixelRatio;
       uniform vec3  uDir;
-      uniform float uOffsets[9];
+      uniform float uOffsets[15];
       uniform float uOriginY;
       uniform float uOriginZ;
       varying float vGlow;
@@ -65,7 +65,7 @@ export function buildDust(params: {
         float u = dot(p, up);
 
         float glow = 0.0;
-        for (int i = 0; i < 9; i++) {
+        for (int i = 0; i < 15; i++) {
           float ref = uOffsets[i] * up.y + uOriginZ * up.z;
           float d = abs(u - ref);
           glow += exp(-d * d * 34.0);
