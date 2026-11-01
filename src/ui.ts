@@ -21,7 +21,7 @@ const projects: Project[] = [
       '普通二体按基础等级和 23×23 阿尔卡纳合成范式计算，固定多体配方精确匹配，宝魔按素材当前等级查排名。技能与特性沿供体树传播，搜索时同步检查 8 个技能槽、继承类别和每层继承上限。',
       '最后将候选路线重新正向执行，验证配方、素材数量与技能携带顺序。无法完整满足时，不伪造“最优解”，而是给出覆盖最多的一条可执行路线和逐项缺口。',
     ],
-    media: { image: '/works/p5r-synth.webp', alt: 'P5R 合成工具的合成树与执行顺序界面' },
+    media: { image: 'works/p5r-synth.webp', alt: 'P5R 合成工具的合成树与执行顺序界面' },
   },
   {
     title: '零度以下',
@@ -51,7 +51,7 @@ const projects: Project[] = [
       '15 张 AI 底板先裁成 2.39:1 并烘焙镜头特性，再在 Blender EEVEE 中叠加体积雾、光柱、尘埃、浅景深和缓慢推镜。全片 27 镜、5839 帧，以 194.63 秒呈现。',
       'NumPy 后期处理曝光、眩光、色度降噪和双语字幕，再用 TPDF 抖动减少暗部色带。原曲 MILI，非官方粉丝二创，仅作学习交流。',
     ],
-    media: { video: '/works/fly-my-wings.mp4', poster: '/works/fly-my-wings-cover.webp' },
+    media: { video: 'works/fly-my-wings.mp4', poster: 'works/fly-my-wings-cover.webp' },
   },
 ];
 

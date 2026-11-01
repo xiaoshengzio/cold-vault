@@ -8,7 +8,7 @@ const errors = [];
 try {
   const page = await browser.newPage({ viewport: { width: 1600, height: 900 } });
   page.on('pageerror', (error) => errors.push(error.message));
-  await page.goto('http://127.0.0.1:5273/', { waitUntil: 'load', timeout: 60000 });
+  await page.goto(process.argv[2] ?? 'http://127.0.0.1:5273/', { waitUntil: 'load', timeout: 60000 });
   await page.waitForFunction('window.__SCENE__ && document.body.classList.contains("is-ready")', { timeout: 60000 });
   if (await page.locator('body').innerText().then((text) => text.includes('冷库'))) throw new Error('Cold Vault Chinese label still visible');
   await page.waitForTimeout(1800);
@@ -28,7 +28,7 @@ try {
   console.log('errors', errors);
 
   const mobile = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
-  await mobile.goto('http://127.0.0.1:5273/', { waitUntil: 'load', timeout: 60000 });
+  await mobile.goto(process.argv[2] ?? 'http://127.0.0.1:5273/', { waitUntil: 'load', timeout: 60000 });
   await mobile.waitForFunction('window.__SCENE__ && document.body.classList.contains("is-ready")', { timeout: 60000 });
   await mobile.waitForTimeout(1800);
   await mobile.screenshot({ path: 'shots/p5r-mobile.png' });
