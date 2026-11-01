@@ -30,7 +30,7 @@ export function fbm(x: number, y: number, octaves = 5, seed = 0): number {
 }
 
 /* ---------------------------------------------------------------- canvas helpers */
-const SIZE = 512;
+const SIZE = 256;
 
 function canvas(draw: (ctx: CanvasRenderingContext2D, s: number) => void): HTMLCanvasElement {
   const c = document.createElement('canvas');

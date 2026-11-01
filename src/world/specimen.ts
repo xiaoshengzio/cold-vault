@@ -250,20 +250,21 @@ export function buildSpecimen(M: any, env: THREE.Texture, stoneEnv: THREE.Textur
   /* ------------------------------------------------------------ materials */
   const quartzMat = (M.glass as THREE.MeshPhysicalMaterial).clone();
   quartzMat.transmission = 0;
-  // 黑曜石晶柱：基色压到近黑，靠环境渐变的镜面反射与棱边菲涅耳读出形体。
-  // 象牙色在暗场里会读成"纸团"，黑色反而让每个解理面像刀口一样分层。
-  quartzMat.color = new THREE.Color(0.024, 0.025, 0.031);
-  quartzMat.emissive = new THREE.Color(0.004, 0.004, 0.005);
+  quartzMat.thickness = 0.72;
+  quartzMat.attenuationColor = new THREE.Color(0.28, 0.52, 0.78);
+  quartzMat.attenuationDistance = 1.8;
+  quartzMat.color = new THREE.Color(0.045, 0.060, 0.082);
+  quartzMat.emissive = new THREE.Color(0.003, 0.006, 0.012);
   quartzMat.ior = 1.58;
-  quartzMat.roughness = 0.290;
+  quartzMat.roughness = 0.19;
   quartzMat.metalness = 0.0;
-  quartzMat.iridescence = 0.34;
+  quartzMat.iridescence = 0.58;
   quartzMat.iridescenceIOR = 1.42;
   quartzMat.envMap = stoneEnv;
-  quartzMat.envMapIntensity = 1.30;
+  quartzMat.envMapIntensity = 1.60;
   quartzMat.flatShading = true;
   quartzMat.clearcoat = 1.0;
-  quartzMat.clearcoatRoughness = 0.105;
+  quartzMat.clearcoatRoughness = 0.075;
   quartzMat.transparent = false;
   quartzMat.opacity = 1.0;
   quartzMat.specularIntensity = 1.0;
@@ -384,14 +385,16 @@ export function buildSpecimen(M: any, env: THREE.Texture, stoneEnv: THREE.Textur
     // 内胆：填在解理缝后面的一层深色玻璃。
   // 没有它时，缝隙透出的是背后的墙与碎片的侧棱高光 → 满身"白色虚线"，
   // 读作渲染瑕疵；有了它，缝隙是一条干净的暗线。
-  const emberMat = new THREE.MeshStandardMaterial({
-    color: new THREE.Color(0.016, 0.020, 0.028),
-    roughness: 0.42,
-    metalness: 0.55,
-    envMapIntensity: 0.8,
-  });
+    const emberMat = new THREE.MeshStandardMaterial({
+      color: new THREE.Color(0.008, 0.016, 0.026),
+      emissive: new THREE.Color(0.015, 0.055, 0.10),
+      emissiveIntensity: 0.75,
+      roughness: 0.30,
+      metalness: 0.55,
+      envMapIntensity: 0.8,
+    });
     const ember = new THREE.Mesh(coreGeo, emberMat);
-    ember.visible = false;
+    ember.visible = true;
     ember.name = 'specimen-ember';
     ember.renderOrder = -1;
     group.add(ember);
@@ -574,6 +577,29 @@ for (const spec of ringSpecs) {
   rings.push({ holder, axis: spec.axis, speed: spec.speed, mat: ringMat, baseY: spec.y });
 }
 
+const orbiters: Array<{
+  mesh: THREE.Mesh;
+  radius: number;
+  angle: number;
+  height: number;
+  speed: number;
+}> = [];
+const satelliteGeo = new THREE.OctahedronGeometry(1, 0);
+for (let i = 0; i < 11; i++) {
+  const mesh = new THREE.Mesh(satelliteGeo, i % 4 === 0 ? brassMat : quartzMat);
+  const s = 0.035 + rand() * 0.040;
+  mesh.scale.set(s * 0.62, s * (1.8 + rand()), s * 0.72);
+  mesh.castShadow = true;
+  group.add(mesh);
+  orbiters.push({
+    mesh,
+    radius: 0.92 + rand() * 0.36,
+    angle: (i / 11) * Math.PI * 2 + rand() * 0.35,
+    height: -1.10 + rand() * 2.20,
+    speed: (0.055 + rand() * 0.055) * (i % 2 ? 1 : -1),
+  });
+}
+
 /* ------------------------------------------------------------- behaviour */
 // 四段式：
 //   rest   —— 碎片以静止变换悬停（开场是原始解理位，碎裂之后就是团块里的位置）
@@ -623,6 +649,20 @@ const tmpQ2 = new THREE.Quaternion();
 
 const clamp01 = (x: number) => (x < 0 ? 0 : x > 1 ? 1 : x);
 const smoothstep = (x: number) => x * x * (3 - 2 * x);
+
+const updateOrbiters = (t: number) => {
+  for (let i = 0; i < orbiters.length; i++) {
+    const orb = orbiters[i];
+    const a = orb.angle + t * orb.speed;
+    const r = orb.radius * (1 + fieldOut * 0.38);
+    orb.mesh.position.set(
+      Math.cos(a) * r,
+      orb.height + Math.sin(t * 0.42 + i * 1.7) * 0.065,
+      Math.sin(a) * r,
+    );
+    orb.mesh.rotation.set(t * 0.18 + i, a + t * 0.12, t * 0.09 + i * 0.4);
+  }
+};
 
 /**
  * 环的状态：静止且未碎 → 原位；已经吸成团块 → 张开到能容下团块（团块半径约 1.1，
@@ -900,6 +940,7 @@ return {
       group.worldToLocal(pointerLocal);
     }
     hoverAmt += (clamp01(hover) - hoverAmt) * Math.min(1, dt * 6.0);
+    updateOrbiters(t);
 
     /* ---- 静止：碎片悬停在各自的静止变换上，纯视觉 ---- */
     if (phase === 'rest') {
@@ -930,9 +971,8 @@ return {
           pc.mesh.position.addScaledVector(toP.normalize(), 0.026 * w);
         }
       }
-      // 悬停预兆：整块轻微鼓胀 + 棱光提亮（碎片此刻是隐藏的，预兆只能由整块表达）
       solid.scale.setScalar(1 + hoverAmt * 0.012);
-      fresUniform.value.setRGB(0.15 + hoverAmt * 0.16, 0.19 + hoverAmt * 0.21, 0.27 + hoverAmt * 0.30);
+      fresUniform.value.setRGB(0.24 + hoverAmt * 0.20, 0.38 + hoverAmt * 0.24, 0.58 + hoverAmt * 0.32);
       core.scale.setScalar(1 + Math.sin(t * 2.4) * 0.1);
       coreLight.intensity = 0.16 + Math.sin(t * 2.4) * 0.04 + hoverAmt * 0.55;
       ringAnim(dt);

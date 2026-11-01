@@ -2,29 +2,32 @@
 
 ## 当前状态
 
-可运行的四章节单页个人站原型（http://127.0.0.1:5273/），3D 首屏、滚动章节、点击碎裂/磁吸重组、窄屏适配均已跑通并通过截图验证（最新首屏 shots/v47.png、移动端 shots/v47-mobile.png、碎裂中 shots/w2-650.png）。**文案全部为占位内容**，尚未替换真实资料（邮箱仍是 hello@coldvault.studio 占位），也未部署。
+当前主体为 88 枚独立十二面体磁体（InstancedMesh + 独立 Rapier 凸包刚体），无隐藏内核。形态队列已改为**每轮 8 种非晶体随机排列，第 9 次回到开场缓存的 homeTargets**，不再随机中途复原；复原误差实测约 5.8e-8。burst 在任意 phase 均可立即重触发，按当前半径衰减起爆速度，200ms 连续 9 次点击无长任务、88 枚最终全部落位。
 
-## 事实
+2026-11 完成生命周期与性能修复：Rapier 首次 step 移到加载预热；交互期 4 solver、关 CCD；84 个舱体刻度改 3 个 InstancedMesh。Three.Timer + visibilitychange 显式暂停/恢复，隐藏启动与加载条不再死等 rAF，WebGL 恢复重建环境反射。真实 CDP 标签页测试通过普通隐藏/恢复、隐藏重载、context lost/restore，无运行时异常。**已添加真实作品 Fly, My Wings，邮箱为 18239690584@163.com；Vercel 临时公开部署已上线并验证，待用户认领长期保留。**
 
-- 目录：C:\工作区\Projects\个人站·冷库
-- 依赖锁定：three 0.186.0 / postprocessing 6.39.5 / @dimforge/rapier3d-compat 0.21.0（postprocessing 6.39 要求 three < 0.187）
-- 构建：`npm run build` = tsc --noEmit + vite build，当前通过；产物 dist/ 5.5MB（gzip 2.05MB）
-- 本机测试条件：headless Edge（channel:'msedge'）、视口 1600×900；**必须加 --ignore-gpu-blocklist --force_high_performance_gpu 才会用独显 RTX 4050，默认走 Intel Iris Xe**
-- 标本：**Voronoi 88 片**黑曜石解理柱（src/world/voronoi.ts），基体沿高度扭转 TWIST=0.55 rad 形成连续晶面；点击 = 碎裂 → 磁吸成团（isClump，团块 boundR ≈0.96）→ 再点回到晶体（rest2 maxOff 0.003）。黄铜双环在非 rest 相位张开让位。竖屏自动收起展台。见决策点「渲染管线大修」与「标本重构」。
-- 2026-10 第七轮实测：生产包连开三次 ready 3226 / 2057 / 2063 ms，最长 longtask 67–69ms；`npx tsc --noEmit` 与 `npm run build` 通过（dist JS 5.55MB / gzip 2.05MB）。
-- 像素预算按 GPU 分档：gpuTier() 读 UNMASKED_RENDERER_WEBGL，nvidia/rtx/radeon → 2.4e6，intel/iris/uhd → 1.25e6，其它 1.7e6；RES_CEIL = max(1, min(dpr, 1.75, sqrt(预算 / 视口面积)))，初始即上限；500ms 一窗（开头 900ms warmup 不计），慢则连续 2 窗先关景深（默认就是关的）再关色差、最后 res−0.10；快则连续 3 窗且 <14ms 才 res+0.08。fxLevel 默认 1（景深关，开场即清晰）；自动模式不会把景深加回来；要电影感景深用「高」或 ?q=high
-- 实测（headless Edge + Iris Xe，1600×900）：dsf=1 → 1600×900，res 1.0，63–102fps；dsf=1.25 → 2000×1125，res 1.25（物理像素 1:1），2 个特效全开约 27–31fps；阶梯轨迹显示 4s 关景深、11s 关色差，分辨率全程未降
-- 2026-10 修复（首帧卡死）：首帧渲染一次性编译全部 WebGL 管线，实测集显上阻塞 4.6–10s，用户在遮罩收起后看到死页面。现已改为：小尺寸（240×150）先把 composer 整条管线跑热再切回主分辨率、遮罩留到 `__FRAMES__ >= 4` 才收、加载条改用纯 CSS 扫描动画、`body.is-loading` 由内联脚本立即加上。生产包首发长任务 10064ms → 960ms（集显）。
-- 2026-10 修复：早先自适应从 1.0 起跳、下限 0.62，在 dpr 2 屏上把 1166×656 的缓冲拉满 1600×900 显示 → 用户反馈画面糊；已改为以物理像素为基准（见上）
-- Blender 5.2 只用于早期晶体/碎片资产，房间与标本已全部改为 Three.js 程序化生成（public/artifact.glb、shards.glb 已不再被 main.ts 使用）
+## 关键事实
+
+- 质量 bug：初版新磁体按密度 1 得到小质量，但磁吸冲量漏乘 `body.mass()`，导致不规则形态飞到半径 90–112。现按真实质量计算冲量与上限；九形态半径稳定约 1.0–1.53。不要用最终强制吸附掩盖物理发散。
+- 实例化：`88-independent-magnets` 是一个 InstancedMesh；`pieces[].mesh` 是矩阵/探针用的独立 dummy，不加入场景。物理与实例矩阵每帧同步。
+- 轨道：实体 Torus + 6 环座已替换为 2 条 LineLoop 虚线（8→2 draw calls）。偏移沿 axis；main 用 `holder.rotateZ` 绕局部法线旋转，不能用父空间 axis 调 `rotateOnAxis`。后续按用户要求取消安全淡入等待，改为每帧由所有磁体实时位置计算 `orbitScale = liveBound*1.14/0.72`，变形全程 `visible=true` 且动态避让。九形态在飞散中和静止后的采样间隙均为正，最小约 0.21。
+- 性能：磁体不投影；静态阴影只烘一次。墙体 Lambert、磁体/地面/黄铜 Standard，无 Physical clearcoat/iridescence 分支；纹理 256。这样既降编译也保留金属 env 反射和自定义菲涅耳。
+- 启动：Rapier 动态 import 拆包；仅生成 artefactEnv，首屏不再做 CubeCamera 烘焙。默认使用 Three.js 原生 ACES，先出 3 帧再退出加载层并预热物理；`?post=1` 才启用 composer，`?bloom=1` 才启用 Bloom。已移除未使用的 RectAreaLightUniformsLib 初始化及 RectAreaLight。尘埃 uOffsets 改为 22 并同步循环次数，修复越界。纹理/PMREM 间仍让帧，`?shaderdebug=1` 才开同步日志。
+- 镜头：释放时 CameraRig.release=1 后移 0.85m；档案页机位已放宽。formation 2/5/6/7 使用 displayYaw 0.24 面向镜头，其他 0.92，避免平面形态停在不可读的侧角。
+- 拖动：已移除 ±2.10rad 限制和 2.6s 自动回正；yawPerPx=2π/视口宽度，可无限续转。pointer capture + pointerId 防止多指/越界锁死，pointercancel/lostcapture/blur/hidden 统一 cancelDrag。拖动时暂停 rig 鼠标视差与 displayYaw 变化。`tools/drag-verify.mjs` 测正反转、越界松手、角度保持和变形中拖动。
+- 竖屏：offX `k*1.72`、offY `-k*0.55`、pullBack `k*2.15`，主体居中在标题上方。
+- 画质：GPU 像素预算、自动效果/分辨率阶梯仍保留；生产 RTX 4050 测试约 72 FPS。
+- 测试：headless Edge 加 `--ignore-gpu-blocklist --force_high_performance_gpu` 才使用独显。`tools/magnet-verify.mjs` 跑完整九形态并断言 radius<4、轨道间隙>=0.01、无 NaN、九种唯一形态、空选区；`tools/kimi-verify.mjs` 测桌面/触屏与弹窗。
+- 旧 `specimen.ts` / `voronoi.ts` 仅作历史参考，main.ts 当前动态导入 `magnet-field.ts` 并与材质/环境初始化并行。
+- 参考视频已下载抽帧分析：用户参考的是独立金属单元可拖拽、碰撞、聚散的手感，不是实心晶体表面附着。临时视频与截图应在交付前清理。
 
 ## 关键文件
 
-- src/main.ts：渲染器、灯光、后处理、交互、主循环、自适应分辨率
-- src/world/specimen.ts：标本几何（六棱柱解理）、Rapier 物理、弹簧场、burst
-- src/world/camera-rig.ts：四章节机位与窄屏补偿
-- src/world/room.ts / beams.ts / dust.ts / materials.ts / env.ts
-- src/ui.ts / src/style.css / index.html：排版层
-- tools/shot.mjs、shot-scroll.mjs、shot-burst.mjs、probe-*.mjs：截图与诊断脚本
+- `src/main.ts`：渲染器、灯光、后处理、输入与自适应画质
+- `src/world/magnet-field.ts` / `formations.ts`：当前磁体物理与九形态
+- `src/world/chamber.ts`：封存舱美术
+- `src/world/camera-rig.ts`：章节、释放与窄屏机位
+- `src/world/materials.ts` / `textures.ts` / `env.ts`：材质与启动成本
+- `src/ui.ts` / `src/style.css` / `index.html`：排版与交互
 
-详见 `决策点.md`、`待办.md`、`README.md`。
+详见 `决策点.md`、`README.md`。

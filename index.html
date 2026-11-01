@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<meta name="theme-color" content="#08090a" />
-<title>冷库 — COLD VAULT</title>
-<meta name="description" content="一个封存未完成作品的私人档案库。3D 收藏层，实时物理。" />
+<meta name="theme-color" content="#05070a" />
+<title>Cold Vault — 冷库 · 私人数字档案</title>
+<meta name="description" content="冷库是一座私人数字档案馆：实时 3D、零重力标本，以及被封存的创作实验。" />
 <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 <link rel="stylesheet" href="/fonts/fonts.css" />
 <link rel="stylesheet" href="/src/style.css" />
@@ -13,113 +13,112 @@
 <body>
 <script>document.body.classList.add('is-loading');</script>
 
-<canvas id="gl" aria-hidden="true"></canvas>
-
-<div class="scrim" id="scrim" aria-hidden="true"></div>
-
-<div class="frame" aria-hidden="true">
-  <span class="tick t-tl"></span><span class="tick t-tr"></span>
-  <span class="tick t-bl"></span><span class="tick t-br"></span>
-</div>
+<canvas id="gl" aria-label="由88枚独立磁体构成、可拖动旋转并点击重组的三维装置"></canvas>
+<div class="scrim" aria-hidden="true"></div>
+<div class="frame" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
 
 <header class="chrome chrome-top">
-  <div class="brand">
-    <svg class="mark" viewBox="0 0 12 12" aria-hidden="true"><path d="M6 1 L11 11 H1 Z" /></svg>
-    <span class="brand-latin">COLD VAULT</span>
-    <span class="brand-cjk">冷库</span>
-  </div>
-  <nav class="nav" aria-label="章节">
-    <button data-goto="0">序</button>
-    <button data-goto="1">档案</button>
-    <button data-goto="2">作品</button>
-    <button data-goto="3">联系</button>
+  <a class="brand" href="#top" data-scroll="0" aria-label="返回首屏">
+    <svg class="mark" viewBox="0 0 28 28" aria-hidden="true"><path d="M14 1 27 14 14 27 1 14Z"/><path d="M14 7v14M7 14h14"/></svg>
+    <span class="brand-type"><b>COLD VAULT</b></span>
+  </a>
+  <nav class="nav" aria-label="章节导航">
+    <button class="is-active" data-goto="0"><i>00</i><span>首页</span></button>
+    <button data-goto="1"><i>01</i><span>标本</span></button>
+    <button data-goto="2"><i>02</i><span>作品</span></button>
+    <button data-goto="3"><i>03</i><span>联系</span></button>
   </nav>
-  <div class="clock"><span id="clock">--:--:--</span><i>CST</i></div>
+  <div class="local-time"><span class="status-dot"></span><span>SHANGHAI</span><time id="clock">--:--:--</time></div>
 </header>
 
+<aside class="chapter-rail" aria-hidden="true">
+  <span id="chapter-current">01</span>
+  <div class="chapter-track"><i id="chapter-progress"></i></div>
+  <span>04</span>
+</aside>
+
 <footer class="chrome chrome-bottom">
-  <div class="meta">31°14′N&nbsp;&nbsp;121°29′E</div>
-  <div class="meta meta-right"><button class="q-btn" id="q-btn" type="button">画质：自动</button><span class="q-sep">/</span>−&nbsp;01&nbsp;°C&nbsp;&nbsp;/&nbsp;&nbsp;RH&nbsp;48%</div>
+  <div class="meta"><span class="live-dot"></span> ARCHIVE ONLINE</div>
+  <div class="meta meta-right"><button class="q-btn" id="q-btn" type="button">画质：自动</button></div>
 </footer>
 
 <main id="scroller">
-
-  <section class="sec sec-hero" data-sec="0">
-    <div class="hero-grid">
-      <p class="eyebrow"><i></i>私人档案 · 编号 07 · 2026</p>
-      <h1 class="display">
-        <span class="display-latin">Cold&nbsp;Vault</span>
-        <span class="display-cjk">冷库</span>
+  <section class="sec sec-hero" id="top" data-sec="0">
+    <div class="hero-copy">
+      <p class="eyebrow"><i></i>私人数字档案 <span>/</span> 第 007 号收藏层</p>
+      <h1 class="display" aria-label="Cold Vault 冷库">
+        <span class="display-line">Cold</span>
+        <span class="display-line display-italic">Vault<small>冷 库</small></span>
       </h1>
-      <p class="lede">
-        把还没有完成的东西，放进一间恒定零度的房间。<br />
-        它们不腐烂，也不再发光 ——
-        直到有人伸手去碰。
-      </p>
+      <div class="hero-bottom">
+        <p class="lede">收藏灵感，也收藏它崩解的瞬间。<br />一间恒定零度的房间，一些仍在生长的实验。</p>
+        <button class="enter-link" type="button" data-scroll="2"><span>进入收藏层</span><i>↘</i></button>
+      </div>
     </div>
   </section>
 
   <section class="sec sec-archive" data-sec="1">
-    <div class="col-left">
-      <p class="eyebrow"><i></i>档案 / 01</p>
-      <h2 class="h2">每一件都被<br /><em>悬停</em>在它崩解的瞬间</h2>
-      <p class="body">
-        收藏层不解说作品。它只负责把时间冻结在最紧张的一帧——
-        结构尚未复原，光已经穿过裂缝。
-        鼠标是引力源，靠近时碎片会被轻轻拉向你；
-        点按则释放一次冲击波，整件标本当场散开，
-        再被弹簧力一寸寸拉回原位。
-      </p>
+    <div class="section-copy">
+      <p class="eyebrow"><i></i>01 / THE ARTIFACT</p>
+      <h2 class="h2">崩解不是终点。<br /><em>是另一种完整。</em></h2>
+      <p class="body">每一枚磁体都是独立的存在。它们散开、碰撞、相互吸引，在秩序与偶然之间，生成下一次形态。</p>
+      <button class="field-button" id="burst-btn" type="button"><span>释放约束场</span><b>＋</b></button>
+      <dl class="spec">
+        <div><dt>标本编号</dt><dd>CV—007</dd></div>
+        <div><dt>独立磁体</dt><dd>88 <small>RIGID BODIES</small></dd></div>
+        <div><dt>当前形态</dt><dd id="field-state">CRYSTAL</dd></div>
+      </dl>
     </div>
-    <dl class="spec">
-      <div><dt>坐标</dt><dd>31.2400° N<br />121.4900° E</dd></div>
-      <div><dt>室温</dt><dd>恒定 −01.0 °C</dd></div>
-      <div><dt>湿度</dt><dd>48 % ± 2</dd></div>
-      <div><dt>库编号</dt><dd>CV–07 / 私人</dd></div>
-      <div><dt>最近更新</dt><dd>2026 · 10</dd></div>
-      <div><dt>扫描方式</dt><dd>实时光追近似<br />物理刚体 · 32 件</dd></div>
-    </dl>
   </section>
 
   <section class="sec sec-works" data-sec="2">
-    <div class="works-head">
-      <p class="eyebrow"><i></i>作品 / 02</p>
-      <h2 class="h2">封存清单</h2>
+    <div class="works-column">
+      <div class="works-head">
+        <p class="eyebrow"><i></i>02 / SELECTED EXPERIMENTS</p>
+        <h2 class="h2">封存清单 <sup>2024—26</sup></h2>
+      </div>
+      <ol class="works-list" id="works">
+        <li><button type="button" data-project="4"><span class="w-code">A—00</span><span class="w-name">Fly, My Wings<small>CINEMATIC FAN MV</small></span><span class="w-tag">影像 / CG</span><span class="w-year">2026</span><span class="w-arrow">↗</span></button></li>
+        <li><button type="button" data-project="0"><span class="w-code">A—01</span><span class="w-name">静态场<small>CONCRETE MONOLITH</small></span><span class="w-tag">实时装置</span><span class="w-year">2026</span><span class="w-arrow">↗</span></button></li>
+        <li><button type="button" data-project="1"><span class="w-code">A—02</span><span class="w-name">零度以下<small>SUBZERO TYPOGRAPHY</small></span><span class="w-tag">字体交互</span><span class="w-year">2025</span><span class="w-arrow">↗</span></button></li>
+        <li><button type="button" data-project="2"><span class="w-code">A—03</span><span class="w-name">第二次碎裂<small>THE SECOND FRACTURE</small></span><span class="w-tag">3D / 物理</span><span class="w-year">2025</span><span class="w-arrow">↗</span></button></li>
+        <li><button type="button" data-project="3"><span class="w-code">A—04</span><span class="w-name">没有窗口的房间<small>A ROOM WITHOUT WINDOWS</small></span><span class="w-tag">影像声音</span><span class="w-year">2024</span><span class="w-arrow">↗</span></button></li>
+      </ol>
     </div>
-    <ol class="works-list" id="works">
-      <li><a href="#" data-code="A—01"><span class="w-code">A—01</span><span class="w-name">静态场 · 混凝土年轮</span><span class="w-year">2026</span><span class="w-tag">装置 / 实时渲染</span></a></li>
-      <li><a href="#" data-code="A—02"><span class="w-code">A—02</span><span class="w-name">零度以下的字体实验</span><span class="w-year">2025</span><span class="w-tag">字体 / 交互</span></a></li>
-      <li><a href="#" data-code="A—03"><span class="w-code">A—03</span><span class="w-name">黄铜与石英的第二次碎裂</span><span class="w-year">2025</span><span class="w-tag">3D / 物理</span></a></li>
-      <li><a href="#" data-code="A—04"><span class="w-code">A—04</span><span class="w-name">没有窗口的房间</span><span class="w-year">2024</span><span class="w-tag">影像 / 声音</span></a></li>
-      <li><a href="#" data-code="A—05"><span class="w-code">A—05</span><span class="w-name">档案柜的第七种排列</span><span class="w-year">2024</span><span class="w-tag">出版 / 印刷</span></a></li>
-    </ol>
   </section>
 
   <section class="sec sec-contact" data-sec="3">
-    <p class="eyebrow"><i></i>联系 / 03</p>
-    <h2 class="h2 contact-h2">如果这里面<br />有你想要的东西</h2>
-    <a class="mail" href="mailto:hello@coldvault.studio">hello@coldvault.studio</a>
-    <div class="contact-foot">
-      <p>也可通过以下方式找到我</p>
-      <ul class="links">
-        <li><a href="#">Instagram</a></li>
-        <li><a href="#">GitHub</a></li>
-        <li><a href="#">小红书</a></li>
-      </ul>
+    <div class="section-copy contact-copy">
+      <p class="eyebrow"><i></i>03 / OPEN A CONVERSATION</p>
+      <h2 class="h2 contact-h2">让下一次实验，<br />不止于<em>被收藏。</em></h2>
+      <p class="body">如果你也在意代码之外的质感、图像背后的系统，<br />以及一个想法如何成为真实的体验——我们可以聊聊。</p>
+      <a class="mail" href="mailto:18239690584@163.com"><span>18239690584@163.com</span><i>↗</i></a>
+      <div class="contact-foot"><span class="status-dot"></span>AVAILABLE FOR SELECTED COLLABORATIONS <span>/</span> 2026</div>
     </div>
-    <p class="copyright">© 2026 COLD VAULT — 内容与影像版权所有</p>
+    <p class="copyright">© 2026 COLD VAULT</p>
   </section>
-
 </main>
 
-<div class="cursor" id="cursor" aria-hidden="true"><span></span></div>
+<dialog class="project-dialog" id="project-dialog" aria-labelledby="project-title">
+  <button class="dialog-close" id="dialog-close" type="button" aria-label="关闭作品详情">×</button>
+  <p class="eyebrow"><i></i><span id="project-code">A—01</span> / ARCHIVE ENTRY</p>
+  <h2 id="project-title">静态场</h2>
+  <p class="project-en" id="project-en">CONCRETE MONOLITH</p>
+  <div class="project-visual" id="project-visual" aria-label="作品预览"><video class="project-media" id="project-video" controls playsinline preload="none" aria-label="Fly, My Wings 影像预览" hidden></video><span></span><i></i><b id="project-visual-code">01</b></div>
+  <p class="project-description" id="project-description"></p>
+  <p class="project-credits" id="project-credits"></p>
+  <div class="project-tags" id="project-tags"></div>
+  <p class="project-foot">COLD VAULT · SELECTED EXPERIMENT <span id="project-year">2026</span></p>
+</dialog>
 
-<div class="preloader" id="preloader">
+<div class="cursor" id="cursor" aria-hidden="true"><span></span><b id="cursor-label"></b></div>
+
+<div class="preloader" id="preloader" role="status" aria-live="polite">
+  <div class="pl-top"><span>COLD VAULT</span><span>PRIVATE DIGITAL ARCHIVE</span></div>
+  <div class="pl-centre"><span>正在开启收藏层</span><i></i></div>
   <div class="pl-inner">
-    <div class="pl-mark">COLD VAULT</div>
-    <div class="pl-count"><span id="pl-num">000</span><i>%</i></div>
+    <div><div class="pl-count"><span id="pl-num">000</span><i>%</i></div><div class="pl-status" id="pl-status">正在密封库房</div></div>
     <div class="pl-bar"><span id="pl-fill"></span><i class="pl-sweep"></i></div>
-    <div class="pl-status" id="pl-status">正在密封库房</div>
   </div>
 </div>
 

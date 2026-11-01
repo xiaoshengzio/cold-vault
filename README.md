@@ -1,63 +1,89 @@
 # 冷库 / COLD VAULT
 
-一个以「恒定零度的私人档案馆」为设定的个人主页：混凝土房间、百叶窗斜切进来的体积光、悬浮的黄铜环与被解理成数十块、靠真实物理悬停的晶体标本。点击标本会把它炸开，松手后碎片在弹簧场里重新聚拢。
-
-- 技术栈：Vite 8 + TypeScript + three.js r186 + postprocessing 6.39 + Rapier3D（零重力刚体）
-- 无框架、无 UI 库；DOM 排版与 WebGL 共存，滚动驱动镜头推拉
+一座「恒定零度的私人数字档案馆」。立式封存舱、日食刻度环与冷光尘埃构成实时场景；主体不是实心晶体，而是 **88 枚彼此独立、可碰撞的小磁体**。
 
 ## 运行
 
 ```bash
 npm install
-npm run dev      # http://127.0.0.1:5273
-npm run build    # tsc --noEmit + vite build
-npm run preview
+npm run dev       # http://127.0.0.1:5273
+npm run build     # TypeScript 检查 + Vite 生产构建
+npm run preview   # 预览生产包
 ```
+
+技术栈：Vite 8、TypeScript、three.js r186、postprocessing 6.39、Rapier3D。无前端框架或 UI 库。
+
+## 磁体与交互
+
+- 88 枚十二面体共享一份几何和材质，通过一次 `InstancedMesh` 绘制；每枚磁体仍有独立 Rapier 刚体、质量、凸包碰撞、速度与角速度。
+- 没有隐藏晶体、附着内壳或实心宿主。初始晶体同样由独立磁体组成。
+- 每轮以随机顺序展示 8 种非晶体形态，第 9 次精确回到开场时缓存的晶体位置；下一轮再重新洗牌。
+- rest / burst / drift / gather 任意阶段都立即接受下一次点击，起爆速度随扩散半径衰减，避免连点飞出场景。
+- 数学结构精确吸附，有机结构保留碰撞结果；磁吸冲量按真实质量计算。
+- 水平拖动可连续旋转 360°并无限续转，松手后不回正；拖动时暂停镜头视差，窗口外松手、失焦或隐藏会正确释放状态。
+- 指针局部引力、点击重组；释放时镜头后移，平面形态缓慢转到可辨认角度。
+- 全局禁止误选文字，邮箱仍允许选择复制。
+
+页面另含四章节镜头、作品详情弹窗、移动端专用构图和自动画质档。
+
+## 性能设计
+
+- 磁体 1 次实例化绘制，不投射实时阴影；84 个舱体刻度合并为 3 次实例化绘制；静态房间只烘一次阴影。
+- 两条虚线轨道仅 2 次绘制，半径逐帧跟随磁体实时包络，变形全程显示并保持安全间隙。
+- 物理缓存在加载阶段预热；交互期使用 4 次求解迭代并关闭当前速度下无收益的 CCD。
+- Rapier 动态拆包并行加载；启动只生成一份环境贴图，不做首屏 CubeCamera 反射烘焙。
+- 默认使用 Three.js 原生 ACES 渲染，基础场景先出帧，再预热物理；`?post=1` 才启用后处理合成，`?bloom=1` 才启用 Bloom，避免冷缓存下重复或昂贵的光学编译。
+- 墙面使用 Lambert，金属与地面使用 Standard；混凝土程序纹理为 256。
+- Three.Timer 管理帧时间，隐藏时停止渲染，恢复时重置计时与画质采样；画质按实际渲染帧间隔调节。
+- 隐藏重载不再死等 rAF，加载条使用前台 rAF / 后台低频定时器；WebGL 恢复会重建环境反射。
+- shader 同步日志默认关闭，需要排查时使用 `?shaderdebug=1`。
 
 ## 结构
 
-```
-index.html            页面骨架：四章节 DOM、页眉页脚、预加载、自定义光标
-src/main.ts           渲染器 / 灯光 / 后处理 / 交互 / 主循环 / 自适应分辨率
-src/ui.ts             预加载计数、时钟、滚动进度、章节导航、光标、作品列表交互
-src/style.css         全部排版与动画样式
+```text
+index.html                 四章节页面、作品对话框与预加载
+src/main.ts                渲染、输入、镜头反馈与自适应画质
+src/ui.ts                  导航、形态状态、作品弹窗与加载
+src/style.css              排版、动效、触屏与防误选
 src/world/
-  room.ts             程序化房间：地面、天花梁、墙板、窗洞、百叶、天空发光面、灯槽
-  materials.ts        共享材质（混凝土、钢材、石材）
-  env.ts              PMREM 环境贴图（室内反射光源）
-  beams.ts            体积光柱（每条窗缝两片交叉加法面 + 自定义 shader）
-  dust.ts             尘埃粒子（高斯聚光 + 近似流体漂移）
-  specimen.ts         标本：六棱柱解理成楔块 + Rapier 刚体 + 弹簧场 + 点击爆发
-  camera-rig.ts       四章节机位、鼠标视差、窄屏取景补偿
-public/fonts/         自托管字体（Instrument Serif / JetBrains Mono，拉丁子集）
-tools/                基于 playwright-core 驱动本机 Edge 的截图与探针脚本
+  magnet-field.ts          88 枚实例化磁体与 Rapier 物理（当前实现）
+  formations.ts            九种确定性目标形态
+  chamber.ts               封存舱、日食环、基座与冷光粒子
+  camera-rig.ts            章节机位、释放后移与竖屏补偿
+  room.ts                  混凝土房间与百叶窗
+  beams.ts / dust.ts       体积光与空气尘埃
+  materials.ts / env.ts    材质与 PMREM 环境
+  specimen.ts / voronoi.ts 旧版解理标本（保留作历史参考，当前不引用）
+tools/kimi-verify.mjs      桌面 / 移动端交互验收
+tools/magnet-verify.mjs    九形态、轨道间隙、半径、NaN、选区与长任务验收
 ```
 
-## 渲染管线
+## 验收
 
-RenderPass → EffectPass(Bloom + DepthOfField) → EffectPass(ACES 色调映射 + SMAA + 噪点 + 暗角) → EffectPass(色差)
+开发服务运行时：
 
-- 色调映射在 WebGLRenderer 里关闭，交给 postprocessing，保证 Bloom 在线性空间里工作
-- 雾（FogExp2 0x0c1118 / 0.052）是场景的统合层：低机位下它有体积感，去掉就会变成「黑屋子里放了几个盒子」
-- 标本金属材质 anisotropy 必须为 0（凸包几何没有切线，各向异性 GGX 会产出 NaN 并经 Bloom 扩散成全屏黑）
-- 景深用 target（Vector3 每帧同步到标本世界坐标）而非手动 focusDistance，手动值在这个距离上对不准
-- 渲染分辨率：以物理像素为准，上限 `min(devicePixelRatio, 1.75)`，下限 `max(0.9, min(上限, dpr × 0.66))`；初始值取上限的 90%
-- 自适应调节：每 48 帧统计平均帧时长，>23ms 降 10%，<16ms 升 5%，在上下限之间浮动；页脚「画质：自动 / 高 / 快」可手动锁定，也可用 `?q=high`、`?q=low` 直接指定（手动模式不再自动调节）
+```bash
+node tools/magnet-verify.mjs       # 8+1 顺序、精确复原、轨道间隙、NaN、选区
+node tools/interaction-verify.mjs  # 任意阶段连点、点击来源、交互长任务
+node tools/drag-verify.mjs         # 360°续转、越界松手、失焦释放、角度保持
+node tools/kimi-verify.mjs         # 桌面章节、移动端与弹窗
+node tools/visibility-verify.mjs   # 真标签页隐藏/重载/WebGL 恢复（会打开测试浏览器）
+node tools/real-stress.mjs         # 默认显卡下三轮冷启动、点击与拖动压测
+```
 
-## 交互
+本机结果：前 8 种形态不重复，第 9 次逐块复原误差约 `5.8e-8`；200ms 连续 9 次点击无交互长任务，88 枚全部落位。真实标签页的普通隐藏/恢复、隐藏重载与 WebGL 恢复均通过，无运行时异常。生产环境 RTX 4050、1600×900 交互测试约 63–72 FPS，其他设备与冷缓存状态会有差异。
 
-- 鼠标 = 引力源：射线与过标本的平面交点作为吸引中心，碎片被拽向光标
-- 点击 = burst：外推冲量 + 随机扰动 + 扭矩，同时把弹簧刚度从 34 降到 15，0.9 秒后恢复
-- 滚动 = 四章节：镜头小幅前推 + 画面左侧压暗遮罩，文字分区淡入
-- 触摸屏同样支持点击碎裂；窄屏自动补偿取景（拉远 + 缩小 fov 变化）
+## 作品：Fly, My Wings
 
-## 已知限制
+首项作品为实际完成的《Fly, My Wings》MV，而非示例项目。观看版视频和封面位于 `public/works/`，弹窗使用 `preload="none"`，仅在打开作品时加载视频。
 
-- **文案全部是占位内容**：中文标题、段落、邮箱 `hello@coldvault.studio`、五个作品条目均为示意，需要替换成真实资料
-- 帧率与清晰度存在取舍：1440×900 窗口在 dpr 1 屏上自动画质约 0.90（1296×810）约 40fps；dpr 2 屏上自动画质稳定在 1.32（1900×1188）约 23–30fps，锁定「画质：高」会到 1.75（2520×1575）但帧率明显下降。数值来自 headless Edge + Intel Iris Xe，真机会有差异
-- 生产包 5.5MB（gzip 2.05MB），体量主要来自 Rapier WASM 与 three；尚未做代码分割
-- 截图脚本依赖本机安装的 Edge（playwright-core 不下载浏览器）
+- 规格：27 镜、194.63 秒、1920×1080、30fps、5839 帧。
+- 管线：15 张 AI 底板 → Blender 5.2 EEVEE 空气与镜头运动 → NumPy 后期 → 分块编码与混音。
+- 原曲：MILI；非官方粉丝二创，仅作学习交流。
+- 制作依据：`C:/工作区/Projects/Fly,my wings/MV/docs/交付说明.md` 与 `Wiki/analyses/Fly-My-Wings-MV-项目经验.md`。
 
-## 截图
+## 部署
 
-`shots/` 下按序号保存各轮迭代：107-hero.png（桌面首屏）、108–110（档案/作品/联系）、103（碎裂瞬间）、106（移动端）。
+2026-11-01 已通过 Vercel 创建临时公开部署：`https://sonic-lilac-2g25ciz.tmp.now`。该地址有效期 60 分钟，需要由网站所有者登录 Vercel 后认领才能长期保留；认领链接不写入项目文件。
+
+线上已验证：首页 3D、作品弹窗、视频资源与实际播放。联系邮箱为 `18239690584@163.com`；其余作品名称与描述仍为示例内容。

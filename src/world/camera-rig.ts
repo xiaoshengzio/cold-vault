@@ -8,10 +8,10 @@ export interface Chapter {
 }
 
 export const CHAPTERS: Chapter[] = [
-  { name: 'COLD VAULT', pos: [0.90, 1.95, 1.20], target: [-1.80, 2.35, -6.20], fov: 46 },
-  { name: 'ARCHIVE', pos: [0.72, 1.98, 0.95], target: [-1.75, 2.30, -6.15], fov: 45 },
-  { name: 'WORKS', pos: [1.05, 1.90, 0.75], target: [-1.65, 2.26, -6.05], fov: 44 },
-  { name: 'CONTACT', pos: [0.80, 1.78, 0.45], target: [-1.70, 2.20, -6.10], fov: 46 },
+  { name: 'COLD VAULT', pos: [0.60, 2.30, 2.80], target: [-2.40, 2.25, -5.40], fov: 42 },
+  { name: 'ARCHIVE', pos: [0.20, 2.65, 2.30], target: [-2.05, 2.45, -4.35], fov: 39 },
+  { name: 'WORKS', pos: [3.25, 2.25, 1.00], target: [-1.90, 2.30, -4.60], fov: 41 },
+  { name: 'CONTACT', pos: [0.20, 3.00, 6.00], target: [-1.60, 2.20, -5.00], fov: 46 },
 ];
 
 const damp = (current: number, target: number, lambda: number, dt: number) =>
@@ -28,7 +28,8 @@ export class CameraRig {
   private mouse = new THREE.Vector2();
   private mouseSmooth = new THREE.Vector2();
   progress = 0;
-  private jump = [0, 0, 0];
+  release = 0;
+  private releaseSmooth = 0;
   private fovScale = 1;
   private pullBack = 0;
   private dir = new THREE.Vector3();
@@ -38,8 +39,8 @@ export class CameraRig {
   setAspect(aspect: number) {
     const k = Math.max(0, 0.92 - aspect) / 0.46;
     this.fovScale = 1 + k * 0.10;
-    this.offX = -k * 0.30;
-    this.offY = -k * 0.52;
+    this.offX = k * 1.72;
+    this.offY = -k * 0.55;
     this.pullBack = k * 2.15;
   }
 
@@ -89,10 +90,12 @@ export class CameraRig {
     }
 
     this.applyChapter(this.progress);
+    this.releaseSmooth = damp(this.releaseSmooth, this.release, 3.2, dt);
 
-    if (this.pullBack > 0.001) {
+    const pullback = this.pullBack + this.releaseSmooth * 0.85;
+    if (pullback > 0.001) {
       this.dir.copy(this.posT).sub(this.lookT).normalize();
-      this.posT.addScaledVector(this.dir, this.pullBack);
+      this.posT.addScaledVector(this.dir, pullback);
     }
 
     this.mouseSmooth.x = damp(this.mouseSmooth.x, this.mouse.x, 11.0, dt);

@@ -2,10 +2,10 @@ import * as THREE from 'three';
 import { makeConcrete, makeBrushRoughness, fbm } from './textures';
 
 export interface VaultMaterials {
-  wall: THREE.MeshStandardMaterial;
-  wallDark: THREE.MeshStandardMaterial;
-  floor: THREE.MeshPhysicalMaterial;
-  ceiling: THREE.MeshStandardMaterial;
+  wall: THREE.MeshLambertMaterial;
+  wallDark: THREE.MeshLambertMaterial;
+  floor: THREE.MeshStandardMaterial;
+  ceiling: THREE.MeshLambertMaterial;
   steel: THREE.MeshStandardMaterial;
   plinth: THREE.MeshStandardMaterial;
   strip: THREE.MeshStandardMaterial;
@@ -29,18 +29,27 @@ function concreteMat(maps: ReturnType<typeof makeConcrete>, tint: THREE.ColorRep
   return m;
 }
 
+function concreteLambert(maps: ReturnType<typeof makeConcrete>, tint: THREE.ColorRepresentation, normalScale: number, env: number) {
+  const m = new THREE.MeshLambertMaterial({
+    map: maps.albedo,
+    normalMap: maps.normal,
+    color: tint,
+    envMapIntensity: env,
+  });
+  m.normalScale.set(normalScale, normalScale);
+  return m;
+}
+
 export function createMaterials(): VaultMaterials {
   const wallMaps = makeConcrete({ base: [0.255, 0.25, 0.245], contrast: 0.26, rough: [0.78, 0.92], repeat: 1.6 });
   const floorMaps = makeConcrete({ base: [0.105, 0.104, 0.102], contrast: 0.07, rough: [0.34, 0.5], repeat: 1.4, grain: 0.12 });
   const ceilMaps = makeConcrete({ base: [0.135, 0.133, 0.13], contrast: 0.3, rough: [0.82, 0.96], repeat: 2.4 });
 
-  const wall = concreteMat(wallMaps, 0x9a968f, 1.0, 0.3, 0.26);
-  const wallDark = concreteMat(ceilMaps, 0xa8a39c, 1.0, 0.5, 0.3);
-  const floor = concreteMat(floorMaps, 0xffffff, 1.0, 0.09, 1.15) as THREE.MeshPhysicalMaterial;
+  const wall = concreteLambert(wallMaps, 0x9a968f, 0.3, 0.26);
+  const wallDark = concreteLambert(ceilMaps, 0xa8a39c, 0.5, 0.3);
+  const floor = concreteMat(floorMaps, 0xffffff, 1.0, 0.09, 1.15);
   floor.metalness = 0.0;
-  floor.clearcoat = 0.34;
-  floor.clearcoatRoughness = 0.34;
-  const ceiling = concreteMat(ceilMaps, 0x8f8a84, 1.0, 0.5, 0.25);
+  const ceiling = concreteLambert(ceilMaps, 0x8f8a84, 0.5, 0.25);
 
   const steelRough = makeBrushRoughness(0.24, 0.5);
   steelRough.repeat.set(2, 2);

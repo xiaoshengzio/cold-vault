@@ -227,30 +227,5 @@ export function buildRoom(M: VaultMaterials): RoomBuild {
   strips.push(coveR);
   g.add(coveR);
 
-  // 圆形展台：标本悬停在其正上方，把构图"落地"
-  const plinthStone = new THREE.MeshStandardMaterial({ color: 0x020203, roughness: 0.90, metalness: 0.0, envMapIntensity: 0.05 });
-  const plinthBase = new THREE.Mesh(new THREE.CylinderGeometry(0.62, 0.70, 0.82, 64, 1), plinthStone);
-  plinthBase.position.set(-0.34, 0.41, -4.10);
-  plinthBase.castShadow = true;
-  plinthBase.receiveShadow = true;
-  plinthBase.name = 'plinth';
-  g.add(plinthBase);
-
-  const plinthCap = new THREE.Mesh(new THREE.CylinderGeometry(0.575, 0.62, 0.20, 64, 1), plinthStone);
-  plinthCap.position.set(-0.34, 0.92, -4.10);
-  plinthCap.castShadow = true;
-  plinthCap.receiveShadow = true;
-  plinthCap.name = 'plinth';
-  g.add(plinthCap);
-
-  const plinthBrass = (M.brass as THREE.MeshPhysicalMaterial).clone();
-  plinthBrass.envMapIntensity = 0.30;
-  plinthBrass.roughness = 0.62;
-  const plinthRing = new THREE.Mesh(new THREE.TorusGeometry(0.585, 0.005, 8, 128), plinthBrass);
-  plinthRing.rotation.x = Math.PI / 2;
-  plinthRing.position.set(-0.34, 1.012, -4.10);
-  plinthRing.name = 'plinth';
-  g.add(plinthRing);
-
   return { group: g, strips, slats, apertureCenter: new THREE.Vector3(0, (AY0 + AY1) / 2, BACK_Z) };
 }
