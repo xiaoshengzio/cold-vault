@@ -95,4 +95,4 @@ node tools/real-stress.mjs         # 默认显卡下三轮冷启动、点击与�
 
 当前正式部署由 **GitHub + Vercel Git 集成**完成：仓库 `https://github.com/xiaoshengzio/cold-vault` 已连接现有 Vercel 项目 `cold-vault`。向 `master` 推送提交会自动触发 Vercel 构建，使用 `npm ci`、`npm run build`，输出目录为 `dist`。无需 GitHub Pages 或手动上传部署包。
 
-线上验证以 Vercel 生产地址为准：`https://cold-vault.vercel.app`。首页 3D、P5R 图片与算法说明、Fly, My Wings 视频均已验证。联系邮箱为 `18239690584@163.com`；其余作品名称与描述仍为示例内容。
+线上验证以 Vercel 生产地址为准：`https://cold-vault-xiaoshengzio.vercel.app`（备用：`https://sonic-lilac-2g25ciz.tmp.now`）。首页 3D、P5R 图片与算法说明、Fly, My Wings 视频均已验证。联系邮箱为 `18239690584@163.com`；其余作品名称与描述仍为示例内容。
