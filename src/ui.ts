@@ -10,13 +10,14 @@ export interface UIDeps {
 interface Project {
   title: string;
   description: string;
-  media?: { video: string; poster: string };
+  media?: { video?: string; poster?: string; image?: string; alt?: string };
 }
 
 const projects: Project[] = [
   {
-    title: '静态场',
-    description: '用混凝土、光和视角构成一个实时空间实验。',
+    title: 'P5R 合成工具',
+    description: '用有界 DFS 与环剪枝搜索合成树，结合阿尔卡纳和等级公式、技能/特性供体传播及 8 槽继承预算，再通过正向重放验证路线。',
+    media: { image: '/works/p5r-synth.webp', alt: 'P5R 合成工具的合成树与执行顺序界面' },
   },
   {
     title: '零度以下',
@@ -104,6 +105,7 @@ export function initUI({ rig, onBurst, getPhase, getFormation }: UIDeps) {
 
   const dialog = document.getElementById('project-dialog') as HTMLDialogElement | null;
   const projectVideo = document.getElementById('project-video') as HTMLVideoElement | null;
+  const projectImage = document.getElementById('project-image') as HTMLImageElement | null;
   const closeDialog = () => dialog?.close();
   document.getElementById('dialog-close')?.addEventListener('click', closeDialog);
   dialog?.addEventListener('close', () => {
@@ -135,15 +137,26 @@ export function initUI({ rig, onBurst, getPhase, getFormation }: UIDeps) {
       }
       if (projectVideo) {
         projectVideo.pause();
-        if (project.media) {
+        if (project.media?.video) {
           projectVideo.src = project.media.video;
-          projectVideo.poster = project.media.poster;
+          projectVideo.poster = project.media.poster ?? '';
           projectVideo.hidden = false;
         } else {
           projectVideo.hidden = true;
           projectVideo.removeAttribute('src');
           projectVideo.removeAttribute('poster');
           projectVideo.load();
+        }
+      }
+      if (projectImage) {
+        if (project.media?.image) {
+          projectImage.src = project.media.image;
+          projectImage.alt = project.media.alt ?? project.title;
+          projectImage.hidden = false;
+        } else {
+          projectImage.hidden = true;
+          projectImage.removeAttribute('src');
+          projectImage.alt = '';
         }
       }
       body.classList.add('dialog-open');

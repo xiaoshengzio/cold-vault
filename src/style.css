@@ -441,6 +441,7 @@ body.is-ready .chapter-rail { opacity: 1; }
 .project-visual.has-video > span, .project-visual.has-video > i, .project-visual.has-video > b { display: none; }
 .project-media { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; background: #05070a; }
 .project-media[hidden] { display: none; }
+#project-image { object-fit: contain; }
 .project-description { margin: 0 0 20px; color: var(--bone-70); font-size: 12px; line-height: 2; letter-spacing: .04em; }
 .project-credits { margin: -8px 0 22px; color: var(--bone-28); font: 7px/1.7 var(--mono); letter-spacing: .1em; }
 .project-tags { display: flex; flex-wrap: wrap; gap: 8px; }

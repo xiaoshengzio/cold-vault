@@ -4,8 +4,8 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="theme-color" content="#05070a" />
-<title>Cold Vault — 冷库 · 私人数字档案</title>
-<meta name="description" content="冷库是一座私人数字档案馆：实时 3D、零重力标本，以及被封存的创作实验。" />
+<title>Cold Vault</title>
+<meta name="description" content="实时 3D、零重力标本，以及被封存的创作实验。" />
 <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 <link rel="stylesheet" href="/fonts/fonts.css" />
 <link rel="stylesheet" href="/src/style.css" />
@@ -45,13 +45,11 @@
 <main id="scroller">
   <section class="sec sec-hero" id="top" data-sec="0">
     <div class="hero-copy">
-      <p class="eyebrow"><i></i>私人数字档案 <span>/</span> 第 007 号收藏层</p>
-      <h1 class="display" aria-label="Cold Vault 冷库">
+      <h1 class="display" aria-label="Cold Vault">
         <span class="display-line">Cold</span>
-        <span class="display-line display-italic">Vault<small>冷 库</small></span>
+        <span class="display-line display-italic">Vault</span>
       </h1>
       <div class="hero-bottom">
-        <p class="lede">收藏灵感，也收藏它崩解的瞬间。<br />一间恒定零度的房间，一些仍在生长的实验。</p>
         <button class="enter-link" type="button" data-scroll="2"><span>进入收藏层</span><i>↘</i></button>
       </div>
     </div>
@@ -59,9 +57,7 @@
 
   <section class="sec sec-archive" data-sec="1">
     <div class="section-copy">
-      <p class="eyebrow"><i></i>01 / THE ARTIFACT</p>
-      <h2 class="h2">崩解不是终点。<br /><em>是另一种完整。</em></h2>
-      <p class="body">每一枚磁体都是独立的存在。它们散开、碰撞、相互吸引，在秩序与偶然之间，生成下一次形态。</p>
+      <h2 class="h2">无序，<br /><em>亦有引力。</em></h2>
       <button class="field-button" id="burst-btn" type="button"><span>释放约束场</span><b>＋</b></button>
     </div>
   </section>
@@ -69,12 +65,11 @@
   <section class="sec sec-works" data-sec="2">
     <div class="works-column">
       <div class="works-head">
-        <p class="eyebrow"><i></i>02 / SELECTED EXPERIMENTS</p>
-        <h2 class="h2">封存清单 <sup>2024—26</sup></h2>
+        <h2 class="h2">封存清单</h2>
       </div>
       <ol class="works-list" id="works">
         <li><button type="button" data-project="4"><span class="w-name">Fly, My Wings</span><span class="w-year">2026</span><span class="w-arrow">↗</span></button></li>
-        <li><button type="button" data-project="0"><span class="w-name">静态场</span><span class="w-year">2026</span><span class="w-arrow">↗</span></button></li>
+        <li><button type="button" data-project="0"><span class="w-name">P5R 合成工具</span><span class="w-year">2026</span><span class="w-arrow">↗</span></button></li>
         <li><button type="button" data-project="1"><span class="w-name">零度以下</span><span class="w-year">2025</span><span class="w-arrow">↗</span></button></li>
         <li><button type="button" data-project="2"><span class="w-name">第二次碎裂</span><span class="w-year">2025</span><span class="w-arrow">↗</span></button></li>
         <li><button type="button" data-project="3"><span class="w-name">没有窗口的房间</span><span class="w-year">2024</span><span class="w-arrow">↗</span></button></li>
@@ -84,9 +79,7 @@
 
   <section class="sec sec-contact" data-sec="3">
     <div class="section-copy contact-copy">
-      <p class="eyebrow"><i></i>03 / OPEN A CONVERSATION</p>
       <h2 class="h2 contact-h2">让下一次实验，<br />不止于<em>被收藏。</em></h2>
-      <p class="body">如果你也在意代码之外的质感、图像背后的系统，<br />以及一个想法如何成为真实的体验——我们可以聊聊。</p>
       <a class="mail" href="mailto:18239690584@163.com"><span>18239690584@163.com</span><i>↗</i></a>
     </div>
     <p class="copyright">© 2026 COLD VAULT</p>
@@ -96,7 +89,7 @@
 <dialog class="project-dialog" id="project-dialog" aria-labelledby="project-title">
   <button class="dialog-close" id="dialog-close" type="button" aria-label="关闭作品详情">×</button>
   <h2 id="project-title">静态场</h2>
-  <div class="project-visual" id="project-visual" aria-label="作品预览"><video class="project-media" id="project-video" controls playsinline preload="none" aria-label="Fly, My Wings 影像预览" hidden></video><span></span><i></i><b id="project-visual-code">01</b></div>
+  <div class="project-visual" id="project-visual" aria-label="作品预览"><video class="project-media" id="project-video" controls playsinline preload="none" aria-label="Fly, My Wings 影像预览" hidden></video><img class="project-media" id="project-image" alt="" hidden /><span></span><i></i><b id="project-visual-code">01</b></div>
   <p class="project-description" id="project-description"></p>
 </dialog>
 
