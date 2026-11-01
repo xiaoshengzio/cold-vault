@@ -22,6 +22,7 @@ try {
   await page.waitForFunction('document.getElementById("project-dialog").open && document.getElementById("project-image").naturalWidth > 0', { timeout: 15000 });
   console.log('project', await page.locator('#project-title').textContent());
   console.log('algorithm', await page.locator('#project-description').textContent());
+  console.log('description paragraphs', await page.locator('#project-description p').count());
   console.log('image', await page.locator('#project-image').evaluate((image) => ({ visible: !image.hidden, width: image.naturalWidth })));
   await page.screenshot({ path: 'shots/p5r-dialog.png' });
   console.log('errors', errors);

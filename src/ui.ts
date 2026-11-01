@@ -9,31 +9,48 @@ export interface UIDeps {
 
 interface Project {
   title: string;
-  description: string;
+  description: string[];
   media?: { video?: string; poster?: string; image?: string; alt?: string };
 }
 
 const projects: Project[] = [
   {
     title: 'P5R 合成工具',
-    description: '用有界 DFS 与环剪枝搜索合成树，结合阿尔卡纳和等级公式、技能/特性供体传播及 8 槽继承预算，再通过正向重放验证路线。',
+    description: [
+      '核心是有界深度优先搜索（DFS）：从目标面具反向展开素材，按深度、单节点候选数、总节点数和时间预算控制搜索空间，并通过环剪枝避免重复配方。',
+      '普通二体按基础等级和 23×23 阿尔卡纳合成范式计算，固定多体配方精确匹配，宝魔按素材当前等级查排名。技能与特性沿供体树传播，搜索时同步检查 8 个技能槽、继承类别和每层继承上限。',
+      '最后将候选路线重新正向执行，验证配方、素材数量与技能携带顺序。无法完整满足时，不伪造“最优解”，而是给出覆盖最多的一条可执行路线和逐项缺口。',
+    ],
     media: { image: '/works/p5r-synth.webp', alt: 'P5R 合成工具的合成树与执行顺序界面' },
   },
   {
     title: '零度以下',
-    description: '让字符随指针在凝固与溶解之间变化的字体实验。',
+    description: [
+      '一组发生在凝固与溶解之间的字体实验。字符不只是被阅读的符号，也会随指针温度改变形态，让排版从静态信息变成可以触碰的材料。',
+      '实验关注的是字形、透明度与运动之间的关系，而不是增加更多视觉效果。',
+    ],
   },
   {
     title: '第二次碎裂',
-    description: '用 Voronoi 解理、零重力刚体与磁吸重组，让碎片重新找到秩序。',
+    description: [
+      '从一颗晶体被击碎的瞬间出发，用 Voronoi 解理构造每块碎片，再让它们在零重力刚体与磁吸作用下重新聚合。',
+      '项目验证的不是“碎开后消失”，而是每块碎片如何沿各自的轨迹重新找到秩序。',
+    ],
   },
   {
     title: '没有窗口的房间',
-    description: '用低频、混响和极弱光线，探索没有窗口时的空间感知。',
+    description: [
+      '当空间失去窗口，声音就成为测量距离的另一种方式。低频、混响与极弱光线共同构成一段沉浸式影像练习。',
+      '它讨论的不是黑暗本身，而是人在有限感知中如何建立空间感。',
+    ],
   },
   {
     title: 'Fly, My Wings',
-    description: '原曲 MILI，非官方粉丝二创。以“标本”为隐喻，用 Blender EEVEE 和 NumPy 后期，将 15 张 AI 底板制作成 27 个电影镜头。',
+    description: [
+      '以“标本”而非“天使”为核心隐喻：被钢针钉住的翅膀、裂开的瓷面具，以及最终离枝的山茶，构成从破碎到坠落的叙事。',
+      '15 张 AI 底板先裁成 2.39:1 并烘焙镜头特性，再在 Blender EEVEE 中叠加体积雾、光柱、尘埃、浅景深和缓慢推镜。全片 27 镜、5839 帧，以 194.63 秒呈现。',
+      'NumPy 后期处理曝光、眩光、色度降噪和双语字幕，再用 TPDF 抖动减少暗部色带。原曲 MILI，非官方粉丝二创，仅作学习交流。',
+    ],
     media: { video: '/works/fly-my-wings.mp4', poster: '/works/fly-my-wings-cover.webp' },
   },
 ];
@@ -128,7 +145,12 @@ export function initUI({ rig, onBurst, getPhase, getFormation }: UIDeps) {
         if (el) el.textContent = value;
       };
       setText('project-title', project.title);
-      setText('project-description', project.description);
+      const description = document.getElementById('project-description');
+      if (description) description.replaceChildren(...project.description.map((text) => {
+        const paragraph = document.createElement('p');
+        paragraph.textContent = text;
+        return paragraph;
+      }));
       setText('project-visual-code', String(index + 1).padStart(2, '0'));
       const visual = document.getElementById('project-visual');
       if (visual) {

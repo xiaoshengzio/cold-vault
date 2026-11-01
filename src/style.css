@@ -443,6 +443,8 @@ body.is-ready .chapter-rail { opacity: 1; }
 .project-media[hidden] { display: none; }
 #project-image { object-fit: contain; }
 .project-description { margin: 0 0 20px; color: var(--bone-70); font-size: 12px; line-height: 2; letter-spacing: .04em; }
+.project-description p { margin: 0 0 14px; }
+.project-description p:last-child { margin-bottom: 0; }
 .project-credits { margin: -8px 0 22px; color: var(--bone-28); font: 7px/1.7 var(--mono); letter-spacing: .1em; }
 .project-tags { display: flex; flex-wrap: wrap; gap: 8px; }
 .project-tags span { padding: 7px 10px; color: var(--bone-48); border: 1px solid var(--bone-14); font: 7px/1 var(--mono); letter-spacing: .1em; }
