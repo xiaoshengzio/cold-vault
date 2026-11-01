@@ -93,6 +93,6 @@ node tools/real-stress.mjs         # 默认显卡下三轮冷启动、点击与�
 
 ## 部署
 
-2026-11-01 已通过 Vercel 创建临时公开部署：`https://sonic-lilac-2g25ciz.tmp.now`。该地址有效期 60 分钟，需要由网站所有者登录 Vercel 后认领才能长期保留；认领链接不写入项目文件。
+2026-11-01 已通过 Netlify Drop 发布最新版本：`https://chimerical-haupia-c0a818.netlify.app`。未认领部署有效期 60 分钟，可在 Netlify Drop 页面点击 **Claim this site** 免费保留，无需 Vercel token 或 DNS 配置。
 
-线上已验证：首页 3D、作品弹窗、视频资源与实际播放。联系邮箱为 `18239690584@163.com`；其余作品名称与描述仍为示例内容。
+线上已验证：首页 3D、P5R 图片与算法说明、Fly, My Wings 视频实际播放。联系邮箱为 `18239690584@163.com`；其余作品名称与描述仍为示例内容。

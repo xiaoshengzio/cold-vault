@@ -4,7 +4,7 @@
 
 当前主体为 88 枚独立十二面体磁体（InstancedMesh + 独立 Rapier 凸包刚体），无隐藏内核。形态队列已改为**每轮 8 种非晶体随机排列，第 9 次回到开场缓存的 homeTargets**，不再随机中途复原；复原误差实测约 5.8e-8。burst 在任意 phase 均可立即重触发，按当前半径衰减起爆速度，200ms 连续 9 次点击无长任务、88 枚最终全部落位。
 
-2026-11 完成生命周期与性能修复：Rapier 首次 step 移到加载预热；交互期 4 solver、关 CCD；84 个舱体刻度改 3 个 InstancedMesh。Three.Timer + visibilitychange 显式暂停/恢复，隐藏启动与加载条不再死等 rAF，WebGL 恢复重建环境反射。真实 CDP 标签页测试通过普通隐藏/恢复、隐藏重载、context lost/restore，无运行时异常。**已添加真实作品 Fly, My Wings，邮箱为 18239690584@163.com；Vercel 临时公开部署已上线并验证，待用户认领长期保留。**
+2026-11 完成生命周期与性能修复：Rapier 首次 step 移到加载预热；交互期 4 solver、关 CCD；84 个舱体刻度改 3 个 InstancedMesh。Three.Timer + visibilitychange 显式暂停/恢复，隐藏启动与加载条不再死等 rAF，WebGL 恢复重建环境反射。真实 CDP 标签页测试通过普通隐藏/恢复、隐藏重载、context lost/restore，无运行时异常。**已添加真实作品 Fly, My Wings 与 P5R 合成工具，邮箱为 18239690584@163.com；Netlify 最新公开版本已上线并验证，待用户点击 Claim this site 长期保留。**
 
 ## 关键事实
 
