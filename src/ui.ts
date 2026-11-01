@@ -8,42 +8,31 @@ export interface UIDeps {
 }
 
 interface Project {
-  code: string;
   title: string;
-  en: string;
-  year: string;
   description: string;
-  credits?: string;
-  tags: string[];
   media?: { video: string; poster: string };
 }
 
 const projects: Project[] = [
   {
-    code: 'A—01', title: '静态场', en: 'CONCRETE MONOLITH', year: '2026',
-    description: '把混凝土的厚重感转译成一套会呼吸的实时空间。光线沿墙体移动，视角成为唯一的刻刀；这是一次关于材质、尺度和静止感的三维实验。',
-    tags: ['REAL-TIME 3D', 'SPATIAL DESIGN', 'WEBGL'],
+    title: '静态场',
+    description: '用混凝土、光和视角构成一个实时空间实验。',
   },
   {
-    code: 'A—02', title: '零度以下', en: 'SUBZERO TYPOGRAPHY', year: '2025',
-    description: '一组发生在凝固与溶解之间的字体实验。字符不再只是被阅读的符号，而是会随指针温度改变形态的透明薄层。',
-    tags: ['TYPOGRAPHY', 'INTERACTION', 'GENERATIVE'],
+    title: '零度以下',
+    description: '让字符随指针在凝固与溶解之间变化的字体实验。',
   },
   {
-    code: 'A—03', title: '第二次碎裂', en: 'THE SECOND FRACTURE', year: '2025',
-    description: '从一颗晶体被击碎的瞬间出发，研究 Voronoi 解理、零重力刚体与磁吸重组。破碎并非随机消失，而是每块碎片重新找到秩序的过程。',
-    tags: ['RAPIER PHYSICS', 'VORONOI', 'MOTION'],
+    title: '第二次碎裂',
+    description: '用 Voronoi 解理、零重力刚体与磁吸重组，让碎片重新找到秩序。',
   },
   {
-    code: 'A—04', title: '没有窗口的房间', en: 'A ROOM WITHOUT WINDOWS', year: '2024',
-    description: '当空间失去窗口，声音就成为测量距离的另一种方式。一段由低频、混响和极弱光线构成的沉浸式影像练习。',
-    tags: ['SOUND', 'FILM', 'INSTALLATION'],
+    title: '没有窗口的房间',
+    description: '用低频、混响和极弱光线，探索没有窗口时的空间感知。',
   },
   {
-    code: 'A—00', title: 'Fly, My Wings', en: 'A CINEMATIC FAN MV', year: '2026',
-    description: '以“标本”而非“天使”为核心隐喻，将 15 张 AI 底板扩展为 27 个电影镜头。Blender EEVEE 负责体积雾、光柱、尘埃与浅景深，NumPy 后期完成曝光、眩光、色度降噪、双语字幕和量化抖动，最终合成 194.63 秒、1920×1080 / 30fps 的影像。',
-    credits: '原曲 MILI · 非官方粉丝二创 · 仅作学习交流',
-    tags: ['BLENDER EEVEE', 'NUMPY POST', '27 SHOTS', 'H.264'],
+    title: 'Fly, My Wings',
+    description: '原曲 MILI，非官方粉丝二创。以“标本”为隐喻，用 Blender EEVEE 和 NumPy 后期，将 15 张 AI 底板制作成 27 个电影镜头。',
     media: { video: '/works/fly-my-wings.mp4', poster: '/works/fly-my-wings-cover.webp' },
   },
 ];
@@ -136,19 +125,9 @@ export function initUI({ rig, onBurst, getPhase, getFormation }: UIDeps) {
         const el = document.getElementById(id);
         if (el) el.textContent = value;
       };
-      setText('project-code', project.code);
       setText('project-title', project.title);
-      setText('project-en', project.en);
       setText('project-description', project.description);
-      setText('project-credits', project.credits ?? '');
-      setText('project-year', project.year);
       setText('project-visual-code', String(index + 1).padStart(2, '0'));
-      const tags = document.getElementById('project-tags');
-      if (tags) tags.replaceChildren(...project.tags.map((tag) => {
-        const span = document.createElement('span');
-        span.textContent = tag;
-        return span;
-      }));
       const visual = document.getElementById('project-visual');
       if (visual) {
         visual.style.filter = project.media ? 'none' : `hue-rotate(${index * 18}deg)`;
